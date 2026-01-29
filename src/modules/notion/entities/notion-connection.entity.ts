@@ -12,6 +12,7 @@ import { User } from '../../user/entities/user.entity';
 
 @Entity({ name: 'notion_connections' })
 export class NotionConnection {
+  
   // 노션 연결 ID(PK)
   @PrimaryGeneratedColumn('uuid', { name: 'notion_connection_id' })
   notionConnectionId!: string;
