@@ -4,7 +4,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { OauthModule } from './modules/oauth/oauth.module';
-import { OAUTH_TOKEN_DEFAULTS } from './modules/oauth/oauth.constants';
 import { MainModule } from './modules/main/main.module';
 import { User } from './modules/user/entities/user.entity';
 import { OauthUser } from './modules/oauth/entities/oauth-user.entity';
@@ -16,9 +15,9 @@ import { Question } from './modules/question/entities/question.entity';
 import { QuestionStatus } from './modules/question/entities/question-status.entity';
 import { QuestionAttempt } from './modules/question/entities/question-attempt.entity';
 
-const toPositiveNumber = (value: string | undefined, fallback: number, key: string): number => {
+const toPositiveNumber = (value: string | undefined, key: string): number => {
   if (value === undefined || value === '') {
-    return fallback;
+    throw new Error(`${key} must be set`);
   }
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -29,16 +28,8 @@ const toPositiveNumber = (value: string | undefined, fallback: number, key: stri
 
 const validateEnv = (env: Record<string, string | undefined>) => ({
   ...env,
-  ACCESS_TOKEN_MINUTES: toPositiveNumber(
-    env.ACCESS_TOKEN_MINUTES,
-    OAUTH_TOKEN_DEFAULTS.accessTokenMinutes,
-    'ACCESS_TOKEN_MINUTES',
-  ),
-  REFRESH_TOKEN_DAYS: toPositiveNumber(
-    env.REFRESH_TOKEN_DAYS,
-    OAUTH_TOKEN_DEFAULTS.refreshTokenDays,
-    'REFRESH_TOKEN_DAYS',
-  ),
+  ACCESS_TOKEN_MINUTES: toPositiveNumber(env.ACCESS_TOKEN_MINUTES, 'ACCESS_TOKEN_MINUTES'),
+  REFRESH_TOKEN_DAYS: toPositiveNumber(env.REFRESH_TOKEN_DAYS, 'REFRESH_TOKEN_DAYS'),
 });
 
 @Module({
