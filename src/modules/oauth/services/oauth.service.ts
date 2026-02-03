@@ -1,17 +1,18 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { OauthLoginRequestDto } from './dtos/oauth-login-request.dto';
-import { OauthLoginResponseDto } from './dtos/oauth-login-response.dto';
-import { OauthRefreshRequestDto } from './dtos/oauth-refresh-request.dto';
-import { User } from '../user/entities/user.entity';
-import { RefreshToken } from './entities/refresh-token.entity';
+import { OauthLoginRequestDto } from '../dtos/oauth-login-request.dto';
+import { OauthLoginResponseDto } from '../dtos/oauth-login-response.dto';
+import { OauthRefreshRequestDto } from '../dtos/oauth-refresh-request.dto';
+import { User } from '../../user/entities/user.entity';
+import { RefreshToken } from '../entities/refresh-token.entity';
 import { OauthProviderService } from './oauth-provider.service';
 import { OauthUserService } from './oauth-user.service';
 import { OauthTokenService } from './oauth-token.service';
 
 @Injectable()
 export class OauthService {
+  // OAuth 전체 흐름 오케스트레이션(로그인/리프레시 조합)
   constructor(
     private readonly providerService: OauthProviderService,
     private readonly userService: OauthUserService,
@@ -22,6 +23,7 @@ export class OauthService {
     private readonly refreshTokenRepository: Repository<RefreshToken>,
   ) {}
 
+  // OAuth 로그인: provider 토큰 교환 -> 프로필 조회 -> 유저 업서트 -> 토큰 발급
   async login(dto: OauthLoginRequestDto): Promise<OauthLoginResponseDto> {
     const provider = dto.provider;
     const tokenResponse = await this.providerService.exchangeCodeForToken(dto);
@@ -47,6 +49,7 @@ export class OauthService {
     });
   }
 
+  // Refresh 회전: 기존 토큰 검증/무효화 -> 신규 토큰 발급
   async refresh(dto: OauthRefreshRequestDto): Promise<OauthLoginResponseDto> {
     const payload = await this.tokenService.verifyRefreshToken(dto.refreshToken);
 

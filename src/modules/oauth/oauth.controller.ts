@@ -3,7 +3,7 @@ import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { OauthLoginRequestDto } from './dtos/oauth-login-request.dto';
 import { OauthLoginResponseDto } from './dtos/oauth-login-response.dto';
 import { OauthRefreshRequestDto } from './dtos/oauth-refresh-request.dto';
-import { OauthService } from './oauth.service';
+import { OauthService } from './services/oauth.service';
 
 @ApiTags('oauth')
 @Controller('oauth')

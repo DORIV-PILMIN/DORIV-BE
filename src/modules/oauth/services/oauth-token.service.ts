@@ -4,8 +4,8 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { createHash, randomUUID } from 'crypto';
-import { OauthLoginResponseDto } from './dtos/oauth-login-response.dto';
-import { RefreshToken } from './entities/refresh-token.entity';
+import { OauthLoginResponseDto } from '../dtos/oauth-login-response.dto';
+import { RefreshToken } from '../entities/refresh-token.entity';
 
 type RefreshTokenPayload = {
   sub: string;
@@ -20,6 +20,7 @@ type AccessTokenPayload = {
 
 @Injectable()
 export class OauthTokenService {
+  // 액세스/리프레시 토큰 발급 및 검증/해시 처리
   constructor(
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
@@ -27,6 +28,7 @@ export class OauthTokenService {
     private readonly refreshTokenRepository: Repository<RefreshToken>,
   ) {}
 
+  // 리프레시 토큰 검증 및 payload 추출
   async verifyRefreshToken(rawToken: string): Promise<RefreshTokenPayload> {
     const refreshSecret = this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
     try {
@@ -38,6 +40,7 @@ export class OauthTokenService {
     }
   }
 
+  // 응답 포맷 생성(만료 시간 포함)
   buildTokenResponse(params: {
     accessToken: string;
     refreshToken: string;
@@ -60,6 +63,7 @@ export class OauthTokenService {
     };
   }
 
+  // 액세스 토큰 발급
   async createAccessToken(userId: string): Promise<string> {
     const accessSecret = this.configService.getOrThrow<string>('JWT_ACCESS_SECRET');
     const accessTokenMinutes = this.configService.getOrThrow<number>('ACCESS_TOKEN_MINUTES');
@@ -70,6 +74,7 @@ export class OauthTokenService {
     });
   }
 
+  // 리프레시 토큰 발급 + DB 저장
   async createRefreshToken(
     userId: string,
     repository: Repository<RefreshToken> = this.refreshTokenRepository,
@@ -96,6 +101,7 @@ export class OauthTokenService {
     return { rawToken, refreshTokenId };
   }
 
+  // 토큰 해시 생성
   hashToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
   }
