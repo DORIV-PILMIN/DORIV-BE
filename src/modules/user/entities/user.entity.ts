@@ -10,6 +10,7 @@ import { NotionConnection } from '../../notion/entities/notion-connection.entity
 import { NotionPage } from '../../notion/entities/notion-page.entity';
 import { QuestionStatus } from '../../question/entities/question-status.entity';
 import { QuestionAttempt } from '../../question/entities/question-attempt.entity';
+import { RefreshToken } from '../../oauth/entities/refresh-token.entity';
 
 @Entity({ name: 'user' })
 export class User {
@@ -52,4 +53,8 @@ export class User {
   // 풀이 로그 목록(1:N)
   @OneToMany(() => QuestionAttempt, (questionAttempt) => questionAttempt.user)
   questionAttempts!: QuestionAttempt[];
+
+  // 리프레시 토큰 목록(1:N)
+  @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
+  refreshTokens!: RefreshToken[];
 }

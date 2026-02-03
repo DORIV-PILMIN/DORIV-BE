@@ -34,6 +34,10 @@ export class QuestionAttempt {
   @Column({ name: 'ai_feedback', type: 'text' })
   aiFeedback!: string;
 
+  // 답변 정확도 점수(0~100)
+  @Column({ name: 'score', type: 'int', nullable: true })
+  score!: number | null;
+
   // 생성 시간
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt!: Date;
