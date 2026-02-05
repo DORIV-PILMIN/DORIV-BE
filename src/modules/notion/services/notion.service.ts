@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+﻿import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotionPage } from '../entities/notion-page.entity';
@@ -11,10 +11,12 @@ import { NotionSearchResponseDto } from '../dtos/notion-search-response.dto';
 import { NotionPageSummaryDto } from '../dtos/notion-page-summary.dto';
 import { NotionAddPageRequestDto } from '../dtos/notion-add-page-request.dto';
 import { NotionPageDto } from '../dtos/notion-page.dto';
+import { NotionPageResponseDto } from '../dtos/notion-page-response.dto';
+import { NotionSearchPagesResponseDto } from '../dtos/notion-search-pages-response.dto';
+import { NotionSearchPageInfoResponseDto } from '../dtos/notion-search-page-info-response.dto';
 
 @Injectable()
 export class NotionService {
-  // 노션 연결 사용자 기준으로 검색/페이지추가/스냅샷 저장을 오케스트레이션
   private static readonly MAX_PAGES_PER_USER = 5;
 
   constructor(
@@ -29,27 +31,40 @@ export class NotionService {
   ) {}
 
   async searchPages(userId: string, dto: NotionSearchRequestDto): Promise<NotionSearchResponseDto> {
-    // 사용자 토큰으로 노션 페이지 검색
-    const token = await this.getUserAccessTokenOrThrow(userId);
-    const response = await this.notionClient.searchPages(token, {
-      query: dto.query,
-      pageSize: dto.pageSize,
-      startCursor: dto.startCursor,
-    });
-
-    const pages = (response.results ?? [])
-      .filter((result: any) => result?.object === 'page')
-      .map((page: any) => this.toPageSummaryDto(page));
+    const response = await this.fetchSearchResult(userId, dto);
+    const pages = this.toPageSummaries(response.results ?? []);
 
     return {
       pages,
-      hasMore: response.has_more ?? false,
-      nextCursor: response.next_cursor ?? null,
+      pageInfo: {
+        hasMore: response.has_more ?? false,
+        nextCursor: response.next_cursor ?? null,
+      },
     };
   }
 
-  async addPage(userId: string, dto: NotionAddPageRequestDto): Promise<NotionPageDto> {
-    // 페이지 추가 + 스냅샷 저장
+  async searchPagesOnly(
+    userId: string,
+    dto: NotionSearchRequestDto,
+  ): Promise<NotionSearchPagesResponseDto> {
+    const response = await this.fetchSearchResult(userId, dto);
+    return { pages: this.toPageSummaries(response.results ?? []) };
+  }
+
+  async searchPageInfoOnly(
+    userId: string,
+    dto: NotionSearchRequestDto,
+  ): Promise<NotionSearchPageInfoResponseDto> {
+    const response = await this.fetchSearchResult(userId, dto);
+    return {
+      pageInfo: {
+        hasMore: response.has_more ?? false,
+        nextCursor: response.next_cursor ?? null,
+      },
+    };
+  }
+
+  async addPage(userId: string, dto: NotionAddPageRequestDto): Promise<NotionPageResponseDto> {
     const token = await this.getUserAccessTokenOrThrow(userId);
     const existing = await this.notionPageRepository.findOne({
       where: { notionPageId: dto.notionPageId },
@@ -58,7 +73,7 @@ export class NotionService {
       if (existing.userId !== userId) {
         throw new ConflictException('이미 다른 사용자에게 연결된 페이지입니다.');
       }
-      return this.toNotionPageDto(existing);
+      return { page: this.toNotionPageDto(existing) };
     }
 
     const currentCount = await this.notionPageRepository.count({ where: { userId } });
@@ -100,7 +115,25 @@ export class NotionService {
       await this.pageSnapshotRepository.save(snapshot);
     }
 
-    return this.toNotionPageDto(savedPage);
+    return { page: this.toNotionPageDto(savedPage) };
+  }
+
+  private async fetchSearchResult(
+    userId: string,
+    dto: NotionSearchRequestDto,
+  ): Promise<{ results: unknown[]; next_cursor: string | null; has_more: boolean }> {
+    const token = await this.getUserAccessTokenOrThrow(userId);
+    return this.notionClient.searchPages(token, {
+      query: dto.query,
+      pageSize: dto.pageSize,
+      startCursor: dto.startCursor,
+    });
+  }
+
+  private toPageSummaries(results: unknown[]): NotionPageSummaryDto[] {
+    return (results ?? [])
+      .filter((result: any) => result?.object === 'page')
+      .map((page: any) => this.toPageSummaryDto(page));
   }
 
   private toPageSummaryDto(page: any): NotionPageSummaryDto {
@@ -124,7 +157,6 @@ export class NotionService {
   }
 
   private async getUserAccessTokenOrThrow(userId: string): Promise<string> {
-    // 노션 미연결 사용자 차단
     const connection = await this.notionConnectionRepository.findOne({ where: { userId } });
     if (!connection?.accessToken) {
       throw new BadRequestException('노션 연결이 필요합니다.');

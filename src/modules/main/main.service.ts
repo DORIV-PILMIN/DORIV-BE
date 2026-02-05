@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+﻿import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotionPage } from '../notion/entities/notion-page.entity';
@@ -12,6 +12,8 @@ import { MainRecentSessionDto } from './dtos/main-recent-session.dto';
 import { MainStatsDto } from './dtos/main-stats.dto';
 import { MainUserDto } from './dtos/main-user.dto';
 import { MainWaitingQuestionDto } from './dtos/main-waiting-question.dto';
+import { MainNotionDomainDto } from './dtos/main-notion-domain.dto';
+import { MainQuestionDomainDto } from './dtos/main-question-domain.dto';
 
 @Injectable()
 export class MainService {
@@ -29,36 +31,48 @@ export class MainService {
   ) {}
 
   async getMainPage(userId: string): Promise<MainPageResponseDto> {
-    // 사용자 기본 정보 조회
+    const [user, notion, question, stats] = await Promise.all([
+      this.getUser(userId),
+      this.getNotion(userId),
+      this.getQuestion(userId),
+      this.getStats(userId),
+    ]);
+
+    return {
+      user,
+      notion,
+      question,
+      stats,
+    };
+  }
+
+  async getUser(userId: string): Promise<MainUserDto> {
     const user = await this.userRepository.findOne({ where: { userId } });
     if (!user) {
-      // 유저가 없을 때 기본 응답 반환
       return {
-        user: {
-          userId,
-          name: 'Unknown',
-          profileImage: null,
-          badge: null,
-        },
-        notionPages: [],
-        waitingQuestion: null,
-        recentSessions: [],
-        stats: {
-          flashcardCount: null,
-          retentionRate: null,
-        },
+        userId,
+        name: 'Unknown',
+        profileImage: null,
+        badge: null,
       };
     }
 
-    // 연결된 노션 페이지 목록 조회(최근 연결순, 최대 5개)
+    return {
+      userId: user.userId,
+      name: user.name,
+      profileImage: user.profileImage,
+      badge: null,
+    };
+  }
+
+  async getNotion(userId: string): Promise<MainNotionDomainDto> {
     const notionPages = await this.notionPageRepository.find({
       where: { userId },
       order: { connectedAt: 'DESC' },
       take: 5,
     });
 
-    // 노션 페이지 DTO 변환
-    const notionPageDtos: MainNotionPageDto[] = notionPages.map((page) => ({
+    const pages: MainNotionPageDto[] = notionPages.map((page) => ({
       pageId: page.pageId,
       notionPageId: page.notionPageId,
       title: page.title,
@@ -67,36 +81,10 @@ export class MainService {
       syncStatus: page.isConnected ? 'OK' : 'FAIL',
     }));
 
-    // 플래시카드(질문) 개수 집계
-    const flashcardCountRaw = await this.questionStatusRepository
-      .createQueryBuilder('qs')
-      .select('COUNT(DISTINCT qs.questionId)', 'count')
-      .where('qs.userId = :userId', { userId })
-      .getRawOne<{ count: string }>();
+    return { pages };
+  }
 
-    // 기억 유지율 평균(점수 평균) 계산
-    const retentionRateRaw = await this.questionAttemptRepository
-      .createQueryBuilder('qa')
-      .select('AVG(qa.score)', 'avg')
-      .where('qa.userId = :userId', { userId })
-      .andWhere('qa.score IS NOT NULL')
-      .getRawOne<{ avg: string | null }>();
-
-    // 통계 DTO 생성
-    const stats: MainStatsDto = {
-      flashcardCount: flashcardCountRaw ? Number(flashcardCountRaw.count) : 0,
-      retentionRate: retentionRateRaw?.avg ? Number(retentionRateRaw.avg) : null,
-    };
-
-    // 사용자 DTO 생성
-    const userDto: MainUserDto = {
-      userId: user.userId,
-      name: user.name,
-      profileImage: user.profileImage,
-      badge: null,
-    };
-
-    // 답변 대기 상태(WAITING) 중 가장 최근 1건 조회
+  async getQuestion(userId: string): Promise<MainQuestionDomainDto> {
     const waitingStatus = await this.questionStatusRepository.findOne({
       where: { userId, status: 'WAITING' },
       order: { createdAt: 'DESC' },
@@ -114,7 +102,6 @@ export class MainService {
       }
     }
 
-    // 최근 풀이 로그 조회(최신순, 최대 6개)
     const recentAttempts = await this.questionAttemptRepository.find({
       where: { userId },
       order: { createdAt: 'DESC' },
@@ -122,7 +109,6 @@ export class MainService {
       relations: ['question'],
     });
 
-    // 점수 기준으로 PASS/WEAK/FAIL 분류
     const recentSessions: MainRecentSessionDto[] = recentAttempts.map((attempt) => {
       const score = attempt.score;
       let result: MainRecentSessionDto['result'] = 'FAIL';
@@ -141,13 +127,29 @@ export class MainService {
       };
     });
 
-    // 메인 페이지 응답 구성
     return {
-      user: userDto,
-      notionPages: notionPageDtos,
       waitingQuestion,
       recentSessions,
-      stats,
+    };
+  }
+
+  async getStats(userId: string): Promise<MainStatsDto> {
+    const flashcardCountRaw = await this.questionStatusRepository
+      .createQueryBuilder('qs')
+      .select('COUNT(DISTINCT qs.questionId)', 'count')
+      .where('qs.userId = :userId', { userId })
+      .getRawOne<{ count: string }>();
+
+    const retentionRateRaw = await this.questionAttemptRepository
+      .createQueryBuilder('qa')
+      .select('AVG(qa.score)', 'avg')
+      .where('qa.userId = :userId', { userId })
+      .andWhere('qa.score IS NOT NULL')
+      .getRawOne<{ avg: string | null }>();
+
+    return {
+      flashcardCount: flashcardCountRaw ? Number(flashcardCountRaw.count) : 0,
+      retentionRate: retentionRateRaw?.avg ? Number(retentionRateRaw.avg) : null,
     };
   }
 }

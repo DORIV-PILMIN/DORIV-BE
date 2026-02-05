@@ -82,13 +82,15 @@ export class StudyPlanService {
     await this.studyScheduleRepository.save(schedules);
 
     return {
-      planId: saved.planId,
-      pageId: saved.pageId,
-      days: saved.days,
-      questionsPerDay: saved.questionsPerDay,
-      totalQuestions: saved.totalQuestions,
-      startsAt: saved.startsAt,
-      timezone: saved.timezone,
+      plan: {
+        planId: saved.planId,
+        pageId: saved.pageId,
+        days: saved.days,
+        questionsPerDay: saved.questionsPerDay,
+        totalQuestions: saved.totalQuestions,
+        startsAt: saved.startsAt,
+        timezone: saved.timezone,
+      },
     };
   }
 

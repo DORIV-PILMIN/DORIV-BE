@@ -53,11 +53,13 @@ export class OauthTokenService {
     const refreshTokenExpiresIn = refreshTokenDays * 24 * 60 * 60;
 
     return {
-      accessToken: params.accessToken,
-      refreshToken: params.refreshToken,
-      tokenType: 'bearer',
-      expiresIn,
-      refreshTokenExpiresIn,
+      tokens: {
+        accessToken: params.accessToken,
+        refreshToken: params.refreshToken,
+        tokenType: 'bearer',
+        expiresIn,
+        refreshTokenExpiresIn,
+      },
       isNewUser: params.isNewUser,
       user: params.user,
     };

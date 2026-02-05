@@ -1,16 +1,15 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+﻿import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Question } from '../entities/question.entity';
 import { QuestionAttempt } from '../entities/question-attempt.entity';
 import { QuestionStatus } from '../entities/question-status.entity';
 import { QuestionAttemptRequestDto } from '../dtos/question-attempt-request.dto';
-import { QuestionAttemptResponseDto } from '../dtos/question-attempt-response.dto';
+import { QuestionAttemptResultDto } from '../dtos/question-attempt-result.dto';
 import { QuestionEvaluationService } from './question-evaluation.service';
 
 @Injectable()
 export class QuestionAttemptService {
-  // 답변 저장 및 평가 결과 반영 전담
   constructor(
     @InjectRepository(Question)
     private readonly questionRepository: Repository<Question>,
@@ -25,7 +24,7 @@ export class QuestionAttemptService {
     userId: string,
     questionId: string,
     dto: QuestionAttemptRequestDto,
-  ): Promise<QuestionAttemptResponseDto> {
+  ): Promise<QuestionAttemptResultDto> {
     const question = await this.questionRepository.findOne({ where: { questionId } });
     if (!question) {
       throw new BadRequestException('질문을 찾을 수 없습니다.');

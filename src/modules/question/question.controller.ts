@@ -7,6 +7,7 @@ import { QuestionAttemptResponseDto } from './dtos/question-attempt-response.dto
 import { QuestionAttemptService } from './services/question-attempt.service';
 import { QuestionGenerateRequestDto } from './dtos/question-generate-request.dto';
 import { QuestionGenerationService } from './services/question-generation.service';
+import { QuestionGenerateResponseDto } from './dtos/question-generate-response.dto';
 
 @ApiTags('question')
 @Controller('questions')
@@ -21,31 +22,32 @@ export class QuestionController {
   @Post('generate')
   @ApiOperation({ summary: '질문 생성' })
   @ApiBody({ type: QuestionGenerateRequestDto })
-  @ApiOkResponse({ description: '?앹꽦??吏덈Ц 紐⑸줉' })
-  @ApiUnauthorizedResponse({ description: '?몄쬆???꾩슂?⑸땲??' })
+  @ApiOkResponse({ type: QuestionGenerateResponseDto, description: '생성한 질문 목록' })
+  @ApiUnauthorizedResponse({ description: '인증이 필요합니다.' })
   async generate(
     @CurrentUserId() userId: string,
     @Body() dto: QuestionGenerateRequestDto,
-  ): Promise<string[]> {
+  ): Promise<QuestionGenerateResponseDto> {
     const count = dto.questionsCount ?? 5;
     const questions = await this.questionGenerationService.generateFromSnapshotForUser({
       snapshotId: dto.snapshotId,
       questionsCount: count,
       userId,
     });
-    return questions.map((q) => q.prompt);
+    return { questions: questions.map((q) => q.prompt) };
   }
 
   @Post(':questionId/attempts')
   @ApiOperation({ summary: '질문 풀이 제출 및 평가' })
   @ApiBody({ type: QuestionAttemptRequestDto })
-  @ApiOkResponse({ type: QuestionAttemptResponseDto, description: '?됯? 寃곌낵' })
-  @ApiUnauthorizedResponse({ description: '?몄쬆???꾩슂?⑸땲??' })
-  submitAttempt(
+  @ApiOkResponse({ type: QuestionAttemptResponseDto, description: '평가 결과' })
+  @ApiUnauthorizedResponse({ description: '인증이 필요합니다.' })
+  async submitAttempt(
     @CurrentUserId() userId: string,
     @Param('questionId', new ParseUUIDPipe()) questionId: string,
     @Body() dto: QuestionAttemptRequestDto,
   ): Promise<QuestionAttemptResponseDto> {
-    return this.questionAttemptService.submitAttempt(userId, questionId, dto);
+    const attempt = await this.questionAttemptService.submitAttempt(userId, questionId, dto);
+    return { attempt };
   }
 }
