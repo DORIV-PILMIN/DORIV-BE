@@ -19,7 +19,7 @@ export class QuestionController {
   ) {}
 
   @Post('generate')
-  @ApiOperation({ summary: '吏덈Ц ?앹꽦' })
+  @ApiOperation({ summary: '질문 생성' })
   @ApiBody({ type: QuestionGenerateRequestDto })
   @ApiOkResponse({ description: '?앹꽦??吏덈Ц 紐⑸줉' })
   @ApiUnauthorizedResponse({ description: '?몄쬆???꾩슂?⑸땲??' })
@@ -37,7 +37,7 @@ export class QuestionController {
   }
 
   @Post(':questionId/attempts')
-  @ApiOperation({ summary: '吏덈Ц ?듬? ?쒖텧 諛??됯?' })
+  @ApiOperation({ summary: '질문 풀이 제출 및 평가' })
   @ApiBody({ type: QuestionAttemptRequestDto })
   @ApiOkResponse({ type: QuestionAttemptResponseDto, description: '?됯? 寃곌낵' })
   @ApiUnauthorizedResponse({ description: '?몄쬆???꾩슂?⑸땲??' })

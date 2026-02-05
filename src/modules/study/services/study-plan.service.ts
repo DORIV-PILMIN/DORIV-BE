@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+﻿import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotionPage } from '../../notion/entities/notion-page.entity';
@@ -11,7 +11,6 @@ import { StudyPlanResponseDto } from '../dtos/study-plan-response.dto';
 
 @Injectable()
 export class StudyPlanService {
-  // 학습 플랜/스케줄 생성 전담
   private readonly timezone = 'Asia/Seoul';
 
   constructor(
@@ -34,7 +33,7 @@ export class StudyPlanService {
 
     const total = dto.days * dto.questionsPerDay;
     if (total > 35) {
-      throw new BadRequestException('총 문제 수는 최대 35개입니다.');
+      throw new BadRequestException('총 질문 수는 최대 35개입니다.');
     }
 
     const startsAt = this.getTodayDateInKst();
@@ -57,17 +56,28 @@ export class StudyPlanService {
 
     const latestSnapshot = await this.getLatestSnapshot(saved.pageId);
     if (!latestSnapshot) {
+      for (const schedule of schedules) {
+        schedule.status = 'FAILED';
+        schedule.failureReason = 'latest snapshot not found';
+      }
+      await this.studyScheduleRepository.save(schedules);
       throw new BadRequestException('페이지 스냅샷을 찾을 수 없습니다.');
     }
 
     for (const schedule of schedules) {
-      await this.questionGenerationService.generateFromSnapshot(
-        latestSnapshot.snapshotId,
-        saved.questionsPerDay,
-        schedule.scheduleId,
-      );
-      schedule.snapshotId = latestSnapshot.snapshotId;
-      schedule.generatedAt = new Date();
+      try {
+        await this.questionGenerationService.generateFromSnapshot(
+          latestSnapshot.snapshotId,
+          saved.questionsPerDay,
+          schedule.scheduleId,
+        );
+        schedule.snapshotId = latestSnapshot.snapshotId;
+        schedule.generatedAt = new Date();
+        schedule.failureReason = null;
+      } catch (error) {
+        schedule.status = 'FAILED';
+        schedule.failureReason = this.formatError(error);
+      }
     }
     await this.studyScheduleRepository.save(schedules);
 
@@ -106,6 +116,7 @@ export class StudyPlanService {
           status: 'PENDING',
           snapshotId: null,
           generatedAt: null,
+          failureReason: null,
         }),
       );
     }
@@ -130,5 +141,12 @@ export class StudyPlanService {
       where: { pageId },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  private formatError(error: unknown): string {
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+    return 'question generation failed';
   }
 }

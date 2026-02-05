@@ -1,4 +1,4 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+﻿import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThanOrEqual, Repository } from 'typeorm';
 import { StudySchedule } from '../entities/study-schedule.entity';
@@ -9,7 +9,6 @@ import { QuestionGenerationService } from '../../question/services/question-gene
 
 @Injectable()
 export class StudySchedulerService implements OnModuleInit, OnModuleDestroy {
-  // 오전 9시 스케줄 처리(질문 생성 및 상태 갱신)
   private intervalId: NodeJS.Timeout | null = null;
 
   constructor(
@@ -51,38 +50,52 @@ export class StudySchedulerService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async processSchedule(schedule: StudySchedule): Promise<void> {
-    const plan = await this.planRepository.findOne({ where: { planId: schedule.planId } });
-    if (!plan) {
-      return;
+    try {
+      const plan = await this.planRepository.findOne({ where: { planId: schedule.planId } });
+      if (!plan) {
+        throw new Error('plan not found');
+      }
+
+      const latestSnapshot = await this.snapshotRepository.findOne({
+        where: { pageId: plan.pageId },
+        order: { createdAt: 'DESC' },
+      });
+      if (!latestSnapshot) {
+        throw new Error('latest snapshot not found');
+      }
+
+      const existingCount = await this.questionRepository.count({
+        where: { scheduleId: schedule.scheduleId },
+      });
+
+      const needsRegenerate =
+        existingCount === 0 || schedule.snapshotId !== latestSnapshot.snapshotId;
+
+      if (needsRegenerate) {
+        await this.questionRepository.delete({ scheduleId: schedule.scheduleId });
+        await this.questionGenerationService.generateFromSnapshot(
+          latestSnapshot.snapshotId,
+          plan.questionsPerDay,
+          schedule.scheduleId,
+        );
+        schedule.snapshotId = latestSnapshot.snapshotId;
+        schedule.generatedAt = new Date();
+      }
+
+      schedule.status = 'SENT';
+      schedule.failureReason = null;
+      await this.scheduleRepository.save(schedule);
+    } catch (error) {
+      schedule.status = 'FAILED';
+      schedule.failureReason = this.formatError(error);
+      await this.scheduleRepository.save(schedule);
     }
+  }
 
-    const latestSnapshot = await this.snapshotRepository.findOne({
-      where: { pageId: plan.pageId },
-      order: { createdAt: 'DESC' },
-    });
-    if (!latestSnapshot) {
-      return;
+  private formatError(error: unknown): string {
+    if (error instanceof Error && error.message) {
+      return error.message;
     }
-
-    const existingCount = await this.questionRepository.count({
-      where: { scheduleId: schedule.scheduleId },
-    });
-
-    const needsRegenerate =
-      existingCount === 0 || schedule.snapshotId !== latestSnapshot.snapshotId;
-
-    if (needsRegenerate) {
-      await this.questionRepository.delete({ scheduleId: schedule.scheduleId });
-      await this.questionGenerationService.generateFromSnapshot(
-        latestSnapshot.snapshotId,
-        plan.questionsPerDay,
-        schedule.scheduleId,
-      );
-      schedule.snapshotId = latestSnapshot.snapshotId;
-      schedule.generatedAt = new Date();
-    }
-
-    schedule.status = 'SENT';
-    await this.scheduleRepository.save(schedule);
+    return 'schedule processing failed';
   }
 }

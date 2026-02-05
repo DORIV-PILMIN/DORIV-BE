@@ -50,6 +50,19 @@ export class QuestionGenerationService {
     scheduleId?: string | null,
   ): Promise<Question[]> {
     const snapshotId = snapshot.snapshotId;
+    if (scheduleId) {
+      const existing = await this.questionRepository.find({
+        where: { scheduleId, snapshotId },
+        order: { createdAt: 'ASC' },
+      });
+      if (existing.length >= questionsCount) {
+        return existing.slice(0, questionsCount);
+      }
+      if (existing.length > 0) {
+        await this.questionRepository.delete({ scheduleId, snapshotId });
+      }
+    }
+
     const plainText = this.extractPlainText(snapshot.content);
     if (!plainText) {
       throw new BadRequestException('?ㅻ깄???댁슜??鍮꾩뼱?덉뒿?덈떎.');
