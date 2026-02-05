@@ -54,7 +54,7 @@ export class OauthService {
     const payload = await this.tokenService.verifyRefreshToken(dto.refreshToken);
 
     if (payload.typ !== 'refresh') {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException('유효하지 않은 리프레시 토큰입니다.');
     }
 
     const tokenHash = this.tokenService.hashToken(dto.refreshToken);
@@ -69,28 +69,28 @@ export class OauthService {
       });
 
       if (!existing) {
-        throw new UnauthorizedException('Refresh token not found');
+        throw new UnauthorizedException('리프레시 토큰을 찾을 수 없습니다.');
       }
 
       if (existing.revokedAt) {
-        throw new UnauthorizedException('Refresh token revoked');
+        throw new UnauthorizedException('리프레시 토큰이 폐기되었습니다.');
       }
 
       if (existing.expiresAt.getTime() <= Date.now()) {
-        throw new UnauthorizedException('Refresh token expired');
+        throw new UnauthorizedException('리프레시 토큰이 만료되었습니다.');
       }
 
       if (payload.jti && payload.jti !== existing.refreshTokenId) {
-        throw new UnauthorizedException('Refresh token mismatch');
+        throw new UnauthorizedException('리프레시 토큰이 일치하지 않습니다.');
       }
 
       if (payload.sub !== existing.userId) {
-        throw new UnauthorizedException('Refresh token mismatch');
+        throw new UnauthorizedException('리프레시 토큰이 일치하지 않습니다.');
       }
 
       const user = await userRepo.findOne({ where: { userId: existing.userId } });
       if (!user) {
-        throw new UnauthorizedException('User not found');
+        throw new UnauthorizedException('사용자를 찾을 수 없습니다.');
       }
 
       const next = await this.tokenService.createRefreshToken(user.userId, refreshRepo);

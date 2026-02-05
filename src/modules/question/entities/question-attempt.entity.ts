@@ -31,8 +31,8 @@ export class QuestionAttempt {
   userAnswer!: string;
 
   // AI 피드백
-  @Column({ name: 'ai_feedback', type: 'text' })
-  aiFeedback!: string;
+  @Column({ name: 'ai_feedback', type: 'text', nullable: true })
+  aiFeedback!: string | null;
 
   // 답변 정확도 점수(0~100)
   @Column({ name: 'score', type: 'int', nullable: true })

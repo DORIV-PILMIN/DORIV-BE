@@ -1,0 +1,94 @@
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Question } from '../entities/question.entity';
+import { QuestionAttempt } from '../entities/question-attempt.entity';
+import { QuestionStatus } from '../entities/question-status.entity';
+import { QuestionAttemptRequestDto } from '../dtos/question-attempt-request.dto';
+import { QuestionAttemptResponseDto } from '../dtos/question-attempt-response.dto';
+import { QuestionEvaluationService } from './question-evaluation.service';
+
+@Injectable()
+export class QuestionAttemptService {
+  // 답변 저장 및 평가 결과 반영 전담
+  constructor(
+    @InjectRepository(Question)
+    private readonly questionRepository: Repository<Question>,
+    @InjectRepository(QuestionAttempt)
+    private readonly questionAttemptRepository: Repository<QuestionAttempt>,
+    @InjectRepository(QuestionStatus)
+    private readonly questionStatusRepository: Repository<QuestionStatus>,
+    private readonly evaluationService: QuestionEvaluationService,
+  ) {}
+
+  async submitAttempt(
+    userId: string,
+    questionId: string,
+    dto: QuestionAttemptRequestDto,
+  ): Promise<QuestionAttemptResponseDto> {
+    const question = await this.questionRepository.findOne({ where: { questionId } });
+    if (!question) {
+      throw new BadRequestException('질문을 찾을 수 없습니다.');
+    }
+
+    const attempt = this.questionAttemptRepository.create({
+      userId,
+      questionId,
+      userAnswer: dto.answer,
+      score: null,
+      aiFeedback: null,
+    });
+    const saved = await this.questionAttemptRepository.save(attempt);
+
+    const evaluation = await this.evaluationService.evaluate(question.prompt, dto.answer);
+    saved.score = evaluation.score;
+    saved.aiFeedback = evaluation.feedback;
+    await this.questionAttemptRepository.save(saved);
+
+    const result = this.toResult(saved.score);
+    await this.upsertStatus(userId, questionId, result);
+
+    return {
+      attemptId: saved.questionAttemptId,
+      result,
+      score: saved.score ?? 0,
+      feedback: saved.aiFeedback ?? '',
+    };
+  }
+
+  private toResult(score: number | null): 'PASS' | 'WEAK' | 'FAIL' {
+    if (score === null) {
+      return 'FAIL';
+    }
+    if (score >= 70) {
+      return 'PASS';
+    }
+    if (score >= 40) {
+      return 'WEAK';
+    }
+    return 'FAIL';
+  }
+
+  private async upsertStatus(
+    userId: string,
+    questionId: string,
+    result: 'PASS' | 'WEAK' | 'FAIL',
+  ): Promise<void> {
+    const existing = await this.questionStatusRepository.findOne({
+      where: { userId, questionId },
+      order: { createdAt: 'DESC' },
+    });
+    if (existing) {
+      existing.status = result;
+      await this.questionStatusRepository.save(existing);
+      return;
+    }
+
+    const status = this.questionStatusRepository.create({
+      userId,
+      questionId,
+      status: result,
+    });
+    await this.questionStatusRepository.save(status);
+  }
+}

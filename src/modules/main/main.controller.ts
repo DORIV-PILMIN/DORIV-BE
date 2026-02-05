@@ -14,8 +14,11 @@ export class MainController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '메인 페이지 데이터 조회' })
-  @ApiOkResponse({ type: MainPageResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @ApiOkResponse({
+    type: MainPageResponseDto,
+    description: '메인 페이지 응답',
+  })
+  @ApiUnauthorizedResponse({ description: '인증이 필요합니다.' })
   getMain(@CurrentUserId() userId: string): Promise<MainPageResponseDto> {
     return this.mainService.getMainPage(userId);
   }

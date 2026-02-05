@@ -5,6 +5,9 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { OauthModule } from './modules/oauth/oauth.module';
 import { MainModule } from './modules/main/main.module';
+import { NotionModule } from './modules/notion/notion.module';
+import { QuestionModule } from './modules/question/question.module';
+import { StudyModule } from './modules/study/study.module';
 import { User } from './modules/user/entities/user.entity';
 import { OauthUser } from './modules/oauth/entities/oauth-user.entity';
 import { RefreshToken } from './modules/oauth/entities/refresh-token.entity';
@@ -14,6 +17,8 @@ import { PageSnapshot } from './modules/notion/entities/page-snapshot.entity';
 import { Question } from './modules/question/entities/question.entity';
 import { QuestionStatus } from './modules/question/entities/question-status.entity';
 import { QuestionAttempt } from './modules/question/entities/question-attempt.entity';
+import { StudyPlan } from './modules/study/entities/study-plan.entity';
+import { StudySchedule } from './modules/study/entities/study-schedule.entity';
 
 const toPositiveNumber = (value: string | undefined, key: string): number => {
   if (value === undefined || value === '') {
@@ -61,6 +66,8 @@ const validateEnv = (env: Record<string, string | undefined>) => ({
             Question,
             QuestionStatus,
             QuestionAttempt,
+            StudyPlan,
+            StudySchedule,
           ],
           autoLoadEntities: false,
           synchronize: true,
@@ -70,6 +77,9 @@ const validateEnv = (env: Record<string, string | undefined>) => ({
     }),
     OauthModule,
     MainModule,
+    NotionModule,
+    QuestionModule,
+    StudyModule,
   ],
   controllers: [AppController],
   providers: [AppService],

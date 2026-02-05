@@ -30,7 +30,7 @@ export class OauthProviderService {
       case OauthProvider.GOOGLE:
         return this.exchangeGoogleToken(dto);
       default:
-        throw new BadRequestException('Unsupported provider');
+        throw new BadRequestException('지원하지 않는 공급자입니다.');
     }
   }
 
@@ -45,7 +45,7 @@ export class OauthProviderService {
       case OauthProvider.GOOGLE:
         return this.fetchGoogleProfile(accessToken);
       default:
-        throw new BadRequestException('Unsupported provider');
+        throw new BadRequestException('지원하지 않는 공급자입니다.');
     }
   }
 
@@ -136,7 +136,7 @@ export class OauthProviderService {
     const data = await this.safeJson(response);
     if (!response.ok) {
       throw new BadRequestException({
-        message: 'OAuth token exchange failed',
+        message: 'OAuth 토큰 교환에 실패했습니다.',
         details: data,
       });
     }
@@ -151,7 +151,7 @@ export class OauthProviderService {
     const data = await this.safeJson(response);
     if (!response.ok) {
       throw new BadRequestException({
-        message: 'OAuth user profile request failed',
+        message: 'OAuth 사용자 프로필 조회에 실패했습니다.',
         details: data,
       });
     }
@@ -175,7 +175,7 @@ export class OauthProviderService {
       return await fetch(url, { ...options, signal: controller.signal });
     } catch (error) {
       if ((error as Error).name === 'AbortError') {
-        throw new BadRequestException('OAuth provider request timeout');
+        throw new BadRequestException('OAuth 공급자 요청이 시간 초과되었습니다.');
       }
       throw error;
     } finally {

@@ -23,6 +23,11 @@ export class Question {
   @Column({ name: 'snapshot_id', type: 'uuid' })
   snapshotId!: string;
 
+  // 스케줄 ID(FK, 선택)
+  @Index('ix_questions_schedule_id')
+  @Column({ name: 'schedule_id', type: 'uuid', nullable: true })
+  scheduleId!: string | null;
+
   // 프롬프트
   @Column({ name: 'prompt', type: 'text' })
   prompt!: string;

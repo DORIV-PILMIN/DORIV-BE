@@ -21,12 +21,12 @@ export class JwtAuthGuard implements CanActivate {
     }>();
     const authHeader = request.headers.authorization;
     if (!authHeader) {
-      throw new UnauthorizedException('Missing Authorization header');
+      throw new UnauthorizedException('Authorization 헤더가 없습니다.');
     }
 
     const [scheme, token] = authHeader.split(' ');
     if (scheme?.toLowerCase() !== 'bearer' || !token) {
-      throw new UnauthorizedException('Invalid Authorization header');
+      throw new UnauthorizedException('Authorization 헤더가 올바르지 않습니다.');
     }
 
     const secret = this.configService.getOrThrow<string>('JWT_ACCESS_SECRET');
@@ -34,11 +34,11 @@ export class JwtAuthGuard implements CanActivate {
     try {
       payload = await this.jwtService.verifyAsync<AccessTokenPayload>(token, { secret });
     } catch {
-      throw new UnauthorizedException('Invalid access token');
+      throw new UnauthorizedException('액세스 토큰이 유효하지 않습니다.');
     }
 
     if (payload.typ && payload.typ !== 'access') {
-      throw new UnauthorizedException('Invalid access token');
+      throw new UnauthorizedException('액세스 토큰이 유효하지 않습니다.');
     }
 
     request.user = { userId: payload.sub };

@@ -36,7 +36,7 @@ export class OauthTokenService {
         secret: refreshSecret,
       });
     } catch {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException('유효하지 않은 리프레시 토큰입니다.');
     }
   }
 
