@@ -1,0 +1,51 @@
+﻿import { Body, Controller, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags, ApiUnauthorizedResponse } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentUserId } from '../../common/decorators/current-user-id.decorator';
+import { QuestionAttemptRequestDto } from './dtos/question-attempt-request.dto';
+import { QuestionAttemptResponseDto } from './dtos/question-attempt-response.dto';
+import { QuestionAttemptService } from './services/question-attempt.service';
+import { QuestionGenerateRequestDto } from './dtos/question-generate-request.dto';
+import { QuestionGenerationService } from './services/question-generation.service';
+
+@ApiTags('question')
+@Controller('questions')
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
+export class QuestionController {
+  constructor(
+    private readonly questionAttemptService: QuestionAttemptService,
+    private readonly questionGenerationService: QuestionGenerationService,
+  ) {}
+
+  @Post('generate')
+  @ApiOperation({ summary: '吏덈Ц ?앹꽦' })
+  @ApiBody({ type: QuestionGenerateRequestDto })
+  @ApiOkResponse({ description: '?앹꽦??吏덈Ц 紐⑸줉' })
+  @ApiUnauthorizedResponse({ description: '?몄쬆???꾩슂?⑸땲??' })
+  async generate(
+    @CurrentUserId() userId: string,
+    @Body() dto: QuestionGenerateRequestDto,
+  ): Promise<string[]> {
+    const count = dto.questionsCount ?? 5;
+    const questions = await this.questionGenerationService.generateFromSnapshotForUser({
+      snapshotId: dto.snapshotId,
+      questionsCount: count,
+      userId,
+    });
+    return questions.map((q) => q.prompt);
+  }
+
+  @Post(':questionId/attempts')
+  @ApiOperation({ summary: '吏덈Ц ?듬? ?쒖텧 諛??됯?' })
+  @ApiBody({ type: QuestionAttemptRequestDto })
+  @ApiOkResponse({ type: QuestionAttemptResponseDto, description: '?됯? 寃곌낵' })
+  @ApiUnauthorizedResponse({ description: '?몄쬆???꾩슂?⑸땲??' })
+  submitAttempt(
+    @CurrentUserId() userId: string,
+    @Param('questionId', new ParseUUIDPipe()) questionId: string,
+    @Body() dto: QuestionAttemptRequestDto,
+  ): Promise<QuestionAttemptResponseDto> {
+    return this.questionAttemptService.submitAttempt(userId, questionId, dto);
+  }
+}
