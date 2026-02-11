@@ -7,13 +7,11 @@ import { NotionConnection } from '../entities/notion-connection.entity';
 import { NotionClientService } from './notion-client.service';
 import { NotionParsingService } from './notion-parsing.service';
 import { NotionSearchRequestDto } from '../dtos/notion-search-request.dto';
-import { NotionSearchResponseDto } from '../dtos/notion-search-response.dto';
+import { NotionSearchPagesResponseDto } from '../dtos/notion-search-pages-response.dto';
 import { NotionPageSummaryDto } from '../dtos/notion-page-summary.dto';
 import { NotionAddPageRequestDto } from '../dtos/notion-add-page-request.dto';
 import { NotionPageDto } from '../dtos/notion-page.dto';
 import { NotionPageResponseDto } from '../dtos/notion-page-response.dto';
-import { NotionSearchPagesResponseDto } from '../dtos/notion-search-pages-response.dto';
-import { NotionSearchPageInfoResponseDto } from '../dtos/notion-search-page-info-response.dto';
 
 @Injectable()
 export class NotionService {
@@ -30,19 +28,6 @@ export class NotionService {
     private readonly parsingService: NotionParsingService,
   ) {}
 
-  async searchPages(userId: string, dto: NotionSearchRequestDto): Promise<NotionSearchResponseDto> {
-    const response = await this.fetchSearchResult(userId, dto);
-    const pages = this.toPageSummaries(response.results ?? []);
-
-    return {
-      pages,
-      pageInfo: {
-        hasMore: response.has_more ?? false,
-        nextCursor: response.next_cursor ?? null,
-      },
-    };
-  }
-
   async searchPagesOnly(
     userId: string,
     dto: NotionSearchRequestDto,
@@ -51,23 +36,11 @@ export class NotionService {
     return { pages: this.toPageSummaries(response.results ?? []) };
   }
 
-  async searchPageInfoOnly(
-    userId: string,
-    dto: NotionSearchRequestDto,
-  ): Promise<NotionSearchPageInfoResponseDto> {
-    const response = await this.fetchSearchResult(userId, dto);
-    return {
-      pageInfo: {
-        hasMore: response.has_more ?? false,
-        nextCursor: response.next_cursor ?? null,
-      },
-    };
-  }
-
   async addPage(userId: string, dto: NotionAddPageRequestDto): Promise<NotionPageResponseDto> {
     const token = await this.getUserAccessTokenOrThrow(userId);
+    const notionPageId = this.resolveNotionPageId(dto);
     const existing = await this.notionPageRepository.findOne({
-      where: { notionPageId: dto.notionPageId },
+      where: { notionPageId },
     });
     if (existing) {
       if (existing.userId !== userId) {
@@ -81,13 +54,13 @@ export class NotionService {
       throw new BadRequestException('노션 페이지는 최대 5개까지 연결할 수 있습니다.');
     }
 
-    const page = await this.notionClient.retrievePage(token, dto.notionPageId);
+    const page = await this.notionClient.retrievePage(token, notionPageId);
     const title = this.parsingService.extractTitleFromPage(page);
     const url = typeof page.url === 'string' ? page.url : '';
 
     const notionPage = this.notionPageRepository.create({
       userId,
-      notionPageId: dto.notionPageId,
+      notionPageId,
       title,
       url,
       isConnected: true,
@@ -95,13 +68,13 @@ export class NotionService {
     });
     const savedPage = await this.notionPageRepository.save(notionPage);
 
-    const blocks = await this.notionClient.retrieveAllBlockChildren(token, dto.notionPageId, 2);
+    const blocks = await this.notionClient.retrieveAllBlockChildren(token, notionPageId, 2);
     const plainText = this.parsingService.extractPlainTextFromBlocks(blocks);
     const snapshotContent = {
       blocks,
       plainText,
     };
-    const contentHash = this.parsingService.createContentHash(dto.notionPageId, snapshotContent);
+    const contentHash = this.parsingService.createContentHash(notionPageId, snapshotContent);
 
     const existingSnapshot = await this.pageSnapshotRepository.findOne({
       where: { contentHash },
@@ -128,6 +101,38 @@ export class NotionService {
       pageSize: dto.pageSize,
       startCursor: dto.startCursor,
     });
+  }
+
+  private resolveNotionPageId(dto: NotionAddPageRequestDto): string {
+    if (dto.notionPageId) {
+      return dto.notionPageId;
+    }
+    if (!dto.notionUrl) {
+      throw new BadRequestException('notionUrl 또는 notionPageId가 필요합니다.');
+    }
+
+    const idFromUrl = this.extractPageIdFromUrl(dto.notionUrl);
+    if (!idFromUrl) {
+      throw new BadRequestException('노션 페이지 URL에서 pageId를 찾을 수 없습니다.');
+    }
+    return idFromUrl;
+  }
+
+  private extractPageIdFromUrl(url: string): string | null {
+    const trimmed = url.trim();
+    const uuidPattern = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/;
+    const compactPattern = /[0-9a-fA-F]{32}/;
+
+    const uuidMatch = trimmed.match(uuidPattern);
+    if (uuidMatch?.[0]) {
+      return uuidMatch[0];
+    }
+    const compactMatch = trimmed.match(compactPattern);
+    if (!compactMatch?.[0]) {
+      return null;
+    }
+    const raw = compactMatch[0];
+    return `${raw.slice(0, 8)}-${raw.slice(8, 12)}-${raw.slice(12, 16)}-${raw.slice(16, 20)}-${raw.slice(20)}`;
   }
 
   private toPageSummaries(results: unknown[]): NotionPageSummaryDto[] {

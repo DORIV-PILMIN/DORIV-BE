@@ -6,6 +6,7 @@ import { StudyPlan } from '../entities/study-plan.entity';
 import { PageSnapshot } from '../../notion/entities/page-snapshot.entity';
 import { Question } from '../../question/entities/question.entity';
 import { QuestionGenerationService } from '../../question/services/question-generation.service';
+import { PushService } from '../../push/push.service';
 
 @Injectable()
 export class StudySchedulerService implements OnModuleInit, OnModuleDestroy {
@@ -21,6 +22,7 @@ export class StudySchedulerService implements OnModuleInit, OnModuleDestroy {
     @InjectRepository(Question)
     private readonly questionRepository: Repository<Question>,
     private readonly questionGenerationService: QuestionGenerationService,
+    private readonly pushService: PushService,
   ) {}
 
   onModuleInit(): void {
@@ -82,9 +84,13 @@ export class StudySchedulerService implements OnModuleInit, OnModuleDestroy {
         schedule.generatedAt = new Date();
       }
 
-      schedule.status = 'SENT';
-      schedule.failureReason = null;
-      await this.scheduleRepository.save(schedule);
+    schedule.status = 'SENT';
+    schedule.failureReason = null;
+    await this.scheduleRepository.save(schedule);
+
+    this.pushService
+      .sendToUser(plan.userId, { title: undefined, body: undefined })
+      .catch(() => null);
     } catch (error) {
       schedule.status = 'FAILED';
       schedule.failureReason = this.formatError(error);

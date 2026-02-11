@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { NotionPage } from '../notion/entities/notion-page.entity';
 import { PageSnapshot } from '../notion/entities/page-snapshot.entity';
 import { QuestionModule } from '../question/question.module';
+import { PushModule } from '../push/push.module';
 import { Question } from '../question/entities/question.entity';
 import { StudyPlan } from './entities/study-plan.entity';
 import { StudySchedule } from './entities/study-schedule.entity';
@@ -22,6 +23,7 @@ import { StudyController } from './study.controller';
       }),
     }),
     QuestionModule,
+    PushModule,
   ],
   providers: [StudyPlanService, StudySchedulerService],
   controllers: [StudyController],

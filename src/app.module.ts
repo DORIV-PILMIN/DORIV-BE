@@ -19,6 +19,9 @@ import { QuestionStatus } from './modules/question/entities/question-status.enti
 import { QuestionAttempt } from './modules/question/entities/question-attempt.entity';
 import { StudyPlan } from './modules/study/entities/study-plan.entity';
 import { StudySchedule } from './modules/study/entities/study-schedule.entity';
+import { PushToken } from './modules/push/entities/push-token.entity';
+import { PushSendLog } from './modules/push/entities/push-send-log.entity';
+import { PushModule } from './modules/push/push.module';
 
 const toPositiveNumber = (value: string | undefined, key: string): number => {
   if (value === undefined || value === '') {
@@ -68,6 +71,8 @@ const validateEnv = (env: Record<string, string | undefined>) => ({
             QuestionAttempt,
             StudyPlan,
             StudySchedule,
+            PushToken,
+            PushSendLog,
           ],
           autoLoadEntities: false,
           synchronize: true,
@@ -80,6 +85,7 @@ const validateEnv = (env: Record<string, string | undefined>) => ({
     NotionModule,
     QuestionModule,
     StudyModule,
+    PushModule,
   ],
   controllers: [AppController],
   providers: [AppService],

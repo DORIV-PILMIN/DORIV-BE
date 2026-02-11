@@ -15,7 +15,29 @@ export class OauthController {
 
   @Post('login')
   @ApiOperation({ summary: 'OAuth 로그인' })
-  @ApiBody({ type: OauthLoginRequestDto })
+  @ApiBody({
+    type: OauthLoginRequestDto,
+    examples: {
+      google: {
+        summary: 'Google 로그인',
+        value: {
+          provider: 'google',
+          code: 'authorization-code-from-google',
+          redirectUri: 'https://example.com/oauth/callback',
+          codeVerifier: 'code-verifier-for-pkce',
+        },
+      },
+      kakao: {
+        summary: 'Kakao 로그인',
+        value: {
+          provider: 'kakao',
+          code: 'authorization-code-from-kakao',
+          redirectUri: 'https://example.com/oauth/callback',
+          codeVerifier: 'code-verifier-for-pkce',
+        },
+      },
+    },
+  })
   @ApiOkResponse({
     type: OauthLoginResponseDto,
     description: '토큰과 사용자 정보',

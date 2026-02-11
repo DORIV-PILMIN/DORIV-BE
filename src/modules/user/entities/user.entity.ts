@@ -11,6 +11,8 @@ import { NotionPage } from '../../notion/entities/notion-page.entity';
 import { QuestionStatus } from '../../question/entities/question-status.entity';
 import { QuestionAttempt } from '../../question/entities/question-attempt.entity';
 import { RefreshToken } from '../../oauth/entities/refresh-token.entity';
+import { PushToken } from '../../push/entities/push-token.entity';
+import { PushSendLog } from '../../push/entities/push-send-log.entity';
 
 @Entity({ name: 'user' })
 export class User {
@@ -57,4 +59,12 @@ export class User {
   // 리프레시 토큰 목록(1:N)
   @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
   refreshTokens!: RefreshToken[];
+
+  // 푸시 토큰 목록(1:N)
+  @OneToMany(() => PushToken, (pushToken) => pushToken.user)
+  pushTokens!: PushToken[];
+
+  // 푸시 발송 로그 목록(1:N)
+  @OneToMany(() => PushSendLog, (log) => log.user)
+  pushSendLogs!: PushSendLog[];
 }
