@@ -34,7 +34,12 @@ export class QuestionController {
       questionsCount: count,
       userId,
     });
-    return { questions: questions.map((q) => q.prompt) };
+    return {
+      questions: questions.map((q) => ({
+        questionId: q.questionId,
+        prompt: q.prompt,
+      })),
+    };
   }
 
   @Post(':questionId/attempts')
