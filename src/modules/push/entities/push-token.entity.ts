@@ -40,7 +40,7 @@ export class PushToken {
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
   updatedAt!: Date;
 
-  @ManyToOne(() => User, (user) => user.userId, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.pushTokens, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user!: User;
 

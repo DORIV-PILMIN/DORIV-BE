@@ -8,7 +8,7 @@ import { GeminiClientService } from '../../ai/gemini-client.service';
 
 @Injectable()
 export class QuestionGenerationService {
-  // ?ㅻ깄??湲곕컲 吏덈Ц ?앹꽦 諛?????꾨떞
+  // 스냅샷 기반 질문 생성과 저장 처리
   constructor(
     @InjectRepository(PageSnapshot)
     private readonly pageSnapshotRepository: Repository<PageSnapshot>,
@@ -39,7 +39,7 @@ export class QuestionGenerationService {
       where: { pageId: snapshot.pageId },
     });
     if (!page || page.userId !== params.userId) {
-      throw new ForbiddenException('?щ엺??吏덈Ц?앹꽦 ?쉶?먯엯?덈떎.');
+      throw new ForbiddenException('해당 사용자의 질문 생성 권한이 없습니다.');
     }
     return this.generateWithSnapshot(snapshot, params.questionsCount, params.scheduleId);
   }
@@ -65,23 +65,23 @@ export class QuestionGenerationService {
 
     const plainText = this.extractPlainText(snapshot.content);
     if (!plainText) {
-      throw new BadRequestException('?ㅻ깄???댁슜??鍮꾩뼱?덉뒿?덈떎.');
+      throw new BadRequestException('스냅샷 텍스트 내용이 비어 있습니다.');
     }
 
     const prompt = this.buildPrompt(plainText, questionsCount);
     let raw = await this.geminiClient.generateText(prompt);
     let questions = this.parseQuestions(raw);
 
-    // 1???ъ떆?? ?덈T ?곴쾶 ?앹꽦??寃쎌슦 蹂댁젙
+    // 1차 생성 개수가 부족하면 한 번 더 보정 요청
     if (questions.length < questionsCount) {
       raw = await this.geminiClient.generateText(
-        `${prompt}\n\n諛섎뱶??${questionsCount}媛쒖쓽 吏덈Ц??JSON 諛곗뿴濡쒕쭔 諛섑솚?대씪.`,
+        `${prompt}\n\n반드시 ${questionsCount}개의 질문을 JSON 배열로만 반환하세요.`,
       );
       questions = this.parseQuestions(raw);
     }
 
     if (questions.length < questionsCount) {
-      throw new BadRequestException('吏덈Ц 媛쒖닔媛 ?ㅼ젙??媛쒖닔蹂대떎 ?곸뒿?덈떎.');
+      throw new BadRequestException('생성된 질문 수가 요청된 개수보다 적습니다.');
     }
 
     if (questions.length > questionsCount) {
@@ -101,19 +101,19 @@ export class QuestionGenerationService {
   private async getSnapshotOrThrow(snapshotId: string): Promise<PageSnapshot> {
     const snapshot = await this.pageSnapshotRepository.findOne({ where: { snapshotId } });
     if (!snapshot) {
-      throw new BadRequestException('?ㅻ깄?룹쓣 李얠쓣 ???놁뒿?덈떎.');
+      throw new BadRequestException('스냅샷을 찾을 수 없습니다.');
     }
     return snapshot;
   }
 
   private buildPrompt(plainText: string, questionsCount: number): string {
     return [
-      '?덈뒗 硫댁젒 吏덈Ц ?앹꽦湲곕떎.',
-      `?꾨옒 ?몄뀡 ?댁슜???쎄퀬 硫댁젒 吏덈Ц???뺥솗??${questionsCount}媛??앹꽦?대씪.`,
-      '諛섎뱶??"???щ엺???몄뀡 ?뺣━ ?댁슜??????댄빐 ?щ? ?뺤씤"??愿??吏덈Ц?쇰줈 援ъ꽦?댁쨾.',
-      '異쒕젰? JSON 諛곗뿴 ?뺤떇留?諛섑솚?대씪. ?? ["吏덈Ц1","吏덈Ц2"]',
+      '너는 면접 질문 생성기다.',
+      `아래 노션 정리 내용을 바탕으로 면접 질문을 정확히 ${questionsCount}개 생성해라.`,
+      '질문은 학습자가 내용을 실제로 이해했는지 검증할 수 있는 형태로 작성해라.',
+      '출력은 JSON 배열만 반환해라. 예: ["질문1","질문2"]',
       '',
-      '?몄뀡 ?댁슜:',
+      '노션 내용:',
       plainText,
     ].join('\n');
   }
@@ -124,7 +124,7 @@ export class QuestionGenerationService {
       trimmed = trimmed.replace(/^```[a-zA-Z]*\s*/, '').replace(/```$/, '').trim();
     }
 
-    // JSON 諛곗뿴 援ш컙留?異붿텧?댁꽌 ?뚯떛 ?쒕룄
+    // JSON 배열 구간만 추출해서 파싱 시도
     const startIdx = trimmed.indexOf('[');
     const endIdx = trimmed.lastIndexOf(']');
     if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
@@ -139,7 +139,7 @@ export class QuestionGenerationService {
       }
     }
 
-    // JSON ?뚯떛 ?ㅽ뙣 ??以꾨컮轅?湲곕컲 fallback
+    // JSON 파싱 실패 시 줄 단위 fallback
     return trimmed
       .split('\n')
       .map((line) => line.replace(/^\s*[\d-]+\s*[.)]?\s*/, '').trim())

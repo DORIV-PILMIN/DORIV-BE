@@ -11,6 +11,7 @@ import { User } from '../../user/entities/user.entity';
 import { Question } from './question.entity';
 
 @Entity({ name: 'question_status' })
+@Index('ux_question_status_user_question', ['userId', 'questionId'], { unique: true })
 export class QuestionStatus {
   // 질문 상태 ID(PK)
   @PrimaryGeneratedColumn('uuid', { name: 'question_status_id' })

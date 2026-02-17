@@ -41,7 +41,7 @@ export class PushSendLog {
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt!: Date;
 
-  @ManyToOne(() => User, (user) => user.userId, { onDelete: 'SET NULL' })
+  @ManyToOne(() => User, (user) => user.pushSendLogs, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'user_id' })
   user!: User | null;
 

@@ -19,10 +19,10 @@ export type ProviderUserProfile = {
 
 @Injectable()
 export class OauthProviderService {
-  // OAuth 공급자별 토큰 교환/프로필 조회
+  // OAuth 제공자 토큰 교환 및 프로필 조회
   constructor(private readonly configService: ConfigService) {}
 
-  // 인가 코드 -> 액세스 토큰 교환 라우팅
+  // 인가 코드 -> 액세스 토큰 교환
   async exchangeCodeForToken(dto: OauthLoginRequestDto): Promise<ProviderTokenResponse> {
     switch (dto.provider) {
       case OauthProvider.KAKAO:
@@ -34,11 +34,8 @@ export class OauthProviderService {
     }
   }
 
-  // 액세스 토큰으로 사용자 프로필 조회 라우팅
-  async fetchUserProfile(
-    provider: OauthProvider,
-    accessToken: string,
-  ): Promise<ProviderUserProfile> {
+  // 액세스 토큰으로 사용자 프로필 조회
+  async fetchUserProfile(provider: OauthProvider, accessToken: string): Promise<ProviderUserProfile> {
     switch (provider) {
       case OauthProvider.KAKAO:
         return this.fetchKakaoProfile(accessToken);
@@ -124,7 +121,7 @@ export class OauthProviderService {
     };
   }
 
-  // x-www-form-urlencoded POST 헬퍼
+  // x-www-form-urlencoded POST 공통
   private async postForm(url: string, body: URLSearchParams): Promise<Record<string, any>> {
     const response = await this.fetchWithTimeout(url, {
       method: 'POST',
@@ -143,7 +140,7 @@ export class OauthProviderService {
     return data;
   }
 
-  // Bearer 인증 GET 헬퍼
+  // Bearer 인증 GET 공통
   private async getJson(url: string, accessToken: string): Promise<Record<string, any>> {
     const response = await this.fetchWithTimeout(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -158,16 +155,13 @@ export class OauthProviderService {
     return data;
   }
 
-  // OAuth 외부 호출 타임아웃(ms)
+  // OAuth HTTP 호출 타임아웃(ms)
   private getOauthTimeoutMs(): number {
     return this.configService.getOrThrow<number>('OAUTH_HTTP_TIMEOUT_MS');
   }
 
   // 타임아웃 포함 fetch
-  private async fetchWithTimeout(
-    url: string,
-    options: RequestInit,
-  ): Promise<Response> {
+  private async fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
     const controller = new AbortController();
     const timeoutMs = this.getOauthTimeoutMs();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);

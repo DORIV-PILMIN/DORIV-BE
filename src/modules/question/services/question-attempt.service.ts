@@ -73,21 +73,26 @@ export class QuestionAttemptService {
     questionId: string,
     result: 'PASS' | 'WEAK' | 'FAIL',
   ): Promise<void> {
-    const existing = await this.questionStatusRepository.findOne({
-      where: { userId, questionId },
-      order: { createdAt: 'DESC' },
-    });
-    if (existing) {
-      existing.status = result;
-      await this.questionStatusRepository.save(existing);
-      return;
-    }
+    await this.questionStatusRepository.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(QuestionStatus);
+      const existing = await repo.findOne({
+        where: { userId, questionId },
+        order: { createdAt: 'DESC' },
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    const status = this.questionStatusRepository.create({
-      userId,
-      questionId,
-      status: result,
+      if (existing) {
+        existing.status = result;
+        await repo.save(existing);
+        return;
+      }
+
+      const status = repo.create({
+        userId,
+        questionId,
+        status: result,
+      });
+      await repo.save(status);
     });
-    await this.questionStatusRepository.save(status);
   }
 }

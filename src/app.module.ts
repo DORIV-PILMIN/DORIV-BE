@@ -34,31 +34,84 @@ const toPositiveNumber = (value: string | undefined, key: string): number => {
   return parsed;
 };
 
+const requireEnv = (env: Record<string, string | number | undefined>, key: string): void => {
+  const value = env[key];
+  if (value === undefined || value === null || String(value).trim() === '') {
+    throw new Error(`${key} must be set`);
+  }
+};
+
+const resolveSynchronize = (env: Record<string, string | undefined>): boolean => {
+  if (env.DB_SYNCHRONIZE) {
+    return env.DB_SYNCHRONIZE === 'true';
+  }
+  return env.NODE_ENV !== 'production';
+};
+
+const validateRequiredConfig = (env: Record<string, string | number | undefined>): void => {
+  requireEnv(env, 'JWT_ACCESS_SECRET');
+  requireEnv(env, 'JWT_REFRESH_SECRET');
+
+  if (env.DATABASE_URL) {
+    return;
+  }
+
+  requireEnv(env, 'DB_HOST');
+  requireEnv(env, 'DB_PORT');
+  requireEnv(env, 'DB_USERNAME');
+  requireEnv(env, 'DB_PASSWORD');
+  requireEnv(env, 'DB_NAME');
+};
+
 const validateEnv = (env: Record<string, string | undefined>) => ({
   ...env,
   ACCESS_TOKEN_MINUTES: toPositiveNumber(env.ACCESS_TOKEN_MINUTES, 'ACCESS_TOKEN_MINUTES'),
   REFRESH_TOKEN_DAYS: toPositiveNumber(env.REFRESH_TOKEN_DAYS, 'REFRESH_TOKEN_DAYS'),
+  DB_SYNCHRONIZE: String(resolveSynchronize(env)),
 });
+
+const parseDatabaseUrl = (databaseUrl: string) => {
+  const parsed = new URL(databaseUrl);
+  const sslMode = parsed.searchParams.get('sslmode');
+  const sslEnabledByUrl = sslMode === 'require' || sslMode === 'verify-ca' || sslMode === 'verify-full';
+  return {
+    host: parsed.hostname,
+    port: Number(parsed.port || 5432),
+    username: decodeURIComponent(parsed.username),
+    password: decodeURIComponent(parsed.password),
+    database: decodeURIComponent(parsed.pathname.replace(/^\//, '')),
+    sslEnabledByUrl,
+  };
+};
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      validate: validateEnv,
+      validate: (env) => {
+        const validated = validateEnv(env);
+        validateRequiredConfig(validated);
+        return validated;
+      },
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
+        const databaseUrl = configService.get<string>('DATABASE_URL');
         const sslEnabled = configService.get<string>('DB_SSL') === 'true';
         const rejectUnauthorized =
           configService.get<string>('DB_SSL_REJECT_UNAUTHORIZED') !== 'false';
+        const synchronize = configService.get<string>('DB_SYNCHRONIZE') === 'true';
+        const dbFromUrl = databaseUrl ? parseDatabaseUrl(databaseUrl) : null;
+        const useSsl = dbFromUrl ? dbFromUrl.sslEnabledByUrl || sslEnabled : sslEnabled;
+
         return {
           type: 'postgres',
-          host: configService.get<string>('DB_HOST'),
-          port: Number(configService.get<string>('DB_PORT') ?? 5432),
-          username: configService.get<string>('DB_USERNAME'),
-          password: configService.get<string>('DB_PASSWORD'),
-          database: configService.get<string>('DB_NAME'),
+          host: dbFromUrl?.host ?? configService.get<string>('DB_HOST'),
+          port: dbFromUrl?.port ?? Number(configService.get<string>('DB_PORT') ?? 5432),
+          username: dbFromUrl?.username ?? configService.get<string>('DB_USERNAME'),
+          password: dbFromUrl?.password ?? configService.get<string>('DB_PASSWORD'),
+          database: dbFromUrl?.database ?? configService.get<string>('DB_NAME'),
           entities: [
             User,
             OauthUser,
@@ -75,8 +128,8 @@ const validateEnv = (env: Record<string, string | undefined>) => ({
             PushSendLog,
           ],
           autoLoadEntities: false,
-          synchronize: true,
-          ssl: sslEnabled ? { rejectUnauthorized } : undefined,
+          synchronize,
+          ssl: useSsl ? { rejectUnauthorized } : undefined,
         };
       },
     }),

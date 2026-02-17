@@ -1,7 +1,7 @@
 ﻿import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { createSign } from 'crypto';
 import { PushToken } from './entities/push-token.entity';
 import { PushSendLog } from './entities/push-send-log.entity';
@@ -31,6 +31,8 @@ type SendResult = {
 @Injectable()
 export class PushService {
   private accessTokenCache: CachedAccessToken | null = null;
+  private readonly sendConcurrency = 10;
+  private readonly requestTimeoutMs: number;
 
   constructor(
     @InjectRepository(PushToken)
@@ -38,7 +40,9 @@ export class PushService {
     @InjectRepository(PushSendLog)
     private readonly pushSendLogRepository: Repository<PushSendLog>,
     private readonly configService: ConfigService,
-  ) {}
+  ) {
+    this.requestTimeoutMs = Number(configService.get<string>('FCM_TIMEOUT_MS') ?? 10000);
+  }
 
   async registerToken(
     userId: string,
@@ -105,28 +109,50 @@ export class PushService {
     const title = dto.title || '일주일이 지났어요!';
     const body = dto.body || '지금 복습하면 기억이 더 오래가요.';
 
-    for (const token of tokens) {
-      const result = await this.sendToToken(token.token, { ...dto, title, body });
-      if (result.status === 'ok') {
+    const items = await this.runWithConcurrency(
+      tokens,
+      this.sendConcurrency,
+      async (token) => {
+        const result = await this.sendToToken(token.token, { ...dto, title, body });
+        return {
+          tokenId: token.pushTokenId,
+          tokenValue: token.token,
+          status: result.status,
+          errorCode: result.errorCode,
+        };
+      },
+    );
+
+    const invalidTokens: string[] = [];
+    const logs: PushSendLog[] = [];
+    for (const item of items) {
+      if (item.status === 'ok') {
         successCount += 1;
-      } else if (result.status === 'invalid') {
+      } else if (item.status === 'invalid') {
         invalidTokenRemoved += 1;
-        await this.pushTokenRepository.delete({ token: token.token });
+        invalidTokens.push(item.tokenValue);
       } else {
         failureCount += 1;
       }
 
-      await this.pushSendLogRepository.save(
+      logs.push(
         this.pushSendLogRepository.create({
           userId,
-          pushTokenId: token.pushTokenId,
+          pushTokenId: item.tokenId,
           title,
           body,
           data: dto.data ?? null,
-          status: result.status.toUpperCase(),
-          errorCode: result.errorCode,
+          status: item.status.toUpperCase(),
+          errorCode: item.errorCode,
         }),
       );
+    }
+
+    if (invalidTokens.length > 0) {
+      await this.pushTokenRepository.delete({ token: In(invalidTokens) });
+    }
+    if (logs.length > 0) {
+      await this.pushSendLogRepository.save(logs);
     }
 
     return { successCount, failureCount, invalidTokenRemoved };
@@ -186,6 +212,7 @@ export class PushService {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(this.requestTimeoutMs),
     });
 
     if (response.ok) {
@@ -256,6 +283,7 @@ export class PushService {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body,
+      signal: AbortSignal.timeout(this.requestTimeoutMs),
     });
 
     if (!response.ok) {
@@ -297,5 +325,32 @@ export class PushService {
       .replace(/=/g, '')
       .replace(/\+/g, '-')
       .replace(/\//g, '_');
+  }
+
+  private async runWithConcurrency<T, R>(
+    items: T[],
+    concurrency: number,
+    worker: (item: T) => Promise<R>,
+  ): Promise<R[]> {
+    if (items.length === 0) {
+      return [];
+    }
+
+    const results: R[] = new Array(items.length);
+    let cursor = 0;
+    const runner = async () => {
+      while (true) {
+        const index = cursor;
+        cursor += 1;
+        if (index >= items.length) {
+          return;
+        }
+        results[index] = await worker(items[index]);
+      }
+    };
+
+    const workers = Array.from({ length: Math.min(concurrency, items.length) }, () => runner());
+    await Promise.all(workers);
+    return results;
   }
 }

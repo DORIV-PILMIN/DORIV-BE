@@ -1,6 +1,6 @@
-﻿import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThanOrEqual, Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { StudySchedule } from '../entities/study-schedule.entity';
 import { StudyPlan } from '../entities/study-plan.entity';
 import { PageSnapshot } from '../../notion/entities/page-snapshot.entity';
@@ -11,6 +11,7 @@ import { PushService } from '../../push/push.service';
 @Injectable()
 export class StudySchedulerService implements OnModuleInit, OnModuleDestroy {
   private intervalId: NodeJS.Timeout | null = null;
+  private readonly logger = new Logger(StudySchedulerService.name);
 
   constructor(
     @InjectRepository(StudySchedule)
@@ -23,11 +24,14 @@ export class StudySchedulerService implements OnModuleInit, OnModuleDestroy {
     private readonly questionRepository: Repository<Question>,
     private readonly questionGenerationService: QuestionGenerationService,
     private readonly pushService: PushService,
+    private readonly dataSource: DataSource,
   ) {}
 
   onModuleInit(): void {
     this.intervalId = setInterval(() => {
-      this.processDueSchedules().catch(() => null);
+      this.processDueSchedules().catch((error: unknown) => {
+        this.logger.error('Failed to process due schedules', error as Error);
+      });
     }, 60 * 1000);
   }
 
@@ -39,15 +43,48 @@ export class StudySchedulerService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async processDueSchedules(): Promise<void> {
-    const now = new Date();
-    const dueSchedules = await this.scheduleRepository.find({
-      where: { status: 'PENDING', scheduledAt: LessThanOrEqual(now) },
-      order: { scheduledAt: 'ASC' },
-      take: 20,
-    });
-
+    const dueSchedules = await this.claimDueSchedules();
     for (const schedule of dueSchedules) {
       await this.processSchedule(schedule);
+    }
+  }
+
+  private async claimDueSchedules(): Promise<StudySchedule[]> {
+    const now = new Date();
+    const staleTime = new Date(now.getTime() - 10 * 60 * 1000);
+    const queryRunner = this.dataSource.createQueryRunner();
+
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const dueSchedules = await queryRunner.manager
+        .createQueryBuilder(StudySchedule, 'schedule')
+        .setLock('pessimistic_write')
+        .setOnLocked('skip_locked')
+        .where('schedule.scheduledAt <= :now', { now })
+        .andWhere(
+          `(schedule.status = 'PENDING' OR (schedule.status = 'PROCESSING' AND schedule.updatedAt <= :staleTime))`,
+          { staleTime },
+        )
+        .orderBy('schedule.scheduledAt', 'ASC')
+        .take(20)
+        .getMany();
+
+      for (const schedule of dueSchedules) {
+        schedule.status = 'PROCESSING';
+        schedule.failureReason = null;
+      }
+      if (dueSchedules.length > 0) {
+        await queryRunner.manager.save(StudySchedule, dueSchedules);
+      }
+
+      await queryRunner.commitTransaction();
+      return dueSchedules;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
   }
 
@@ -69,7 +106,6 @@ export class StudySchedulerService implements OnModuleInit, OnModuleDestroy {
       const existingCount = await this.questionRepository.count({
         where: { scheduleId: schedule.scheduleId },
       });
-
       const needsRegenerate =
         existingCount === 0 || schedule.snapshotId !== latestSnapshot.snapshotId;
 
@@ -84,13 +120,15 @@ export class StudySchedulerService implements OnModuleInit, OnModuleDestroy {
         schedule.generatedAt = new Date();
       }
 
-    schedule.status = 'SENT';
-    schedule.failureReason = null;
-    await this.scheduleRepository.save(schedule);
+      schedule.status = 'SENT';
+      schedule.failureReason = null;
+      await this.scheduleRepository.save(schedule);
 
-    this.pushService
-      .sendToUser(plan.userId, { title: undefined, body: undefined })
-      .catch(() => null);
+      this.pushService.sendToUser(plan.userId, { title: undefined, body: undefined }).catch((error: unknown) => {
+        this.logger.warn(
+          `Failed to send push for schedule ${schedule.scheduleId}: ${this.formatError(error)}`,
+        );
+      });
     } catch (error) {
       schedule.status = 'FAILED';
       schedule.failureReason = this.formatError(error);
