@@ -49,6 +49,7 @@ export class QuestionAttemptService {
 
     return {
       attemptId: saved.questionAttemptId,
+      questionId,
       result,
       score: saved.score ?? 0,
       feedback: saved.aiFeedback ?? '',

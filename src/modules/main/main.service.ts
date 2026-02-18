@@ -85,21 +85,26 @@ export class MainService {
   }
 
   async getQuestion(userId: string): Promise<MainQuestionDomainDto> {
-    const waitingStatus = await this.questionStatusRepository.findOne({
-      where: { userId, status: 'WAITING' },
-      order: { createdAt: 'DESC' },
-    });
-
     let waitingQuestion: MainWaitingQuestionDto | null = null;
-    if (waitingStatus) {
-      const waitingQuestionEntity = await this.questionRepository.findOne({
-        where: { questionId: waitingStatus.questionId },
-      });
-      if (waitingQuestionEntity) {
-        waitingQuestion = {
-          title: waitingQuestionEntity.prompt,
-        };
-      }
+    const waitingQuestionEntity = await this.questionRepository
+      .createQueryBuilder('q')
+      .innerJoin('page_snapshots', 'ps', 'ps.snapshot_id = q.snapshot_id')
+      .innerJoin('notion_pages', 'np', 'np.page_id = ps.page_id AND np.user_id = :userId', { userId })
+      .leftJoin(
+        'question_attempts',
+        'qa',
+        'qa.question_id = q.question_id AND qa.user_id = :userId',
+        { userId },
+      )
+      .where('qa.question_attempt_id IS NULL')
+      .orderBy('q.created_at', 'DESC')
+      .getOne();
+
+    if (waitingQuestionEntity) {
+      waitingQuestion = {
+        questionId: waitingQuestionEntity.questionId,
+        title: waitingQuestionEntity.prompt,
+      };
     }
 
     const recentAttempts = await this.questionAttemptRepository.find({
@@ -120,6 +125,8 @@ export class MainService {
         }
       }
       return {
+        attemptId: attempt.questionAttemptId,
+        questionId: attempt.questionId,
         title: attempt.question?.prompt ?? 'Untitled',
         result,
         score,

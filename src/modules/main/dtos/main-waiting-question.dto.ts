@@ -1,7 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 export class MainWaitingQuestionDto {
-  // 풀어야 하는 질문 제목
+  @ApiProperty({ example: 'bfa357a3-c251-47ca-aed5-2ed33b99d569' })
+  questionId!: string;
+
   @ApiProperty({ example: 'What is the time complexity here?' })
   title!: string;
 }
