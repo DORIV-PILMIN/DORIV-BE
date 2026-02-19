@@ -14,7 +14,8 @@ async function bootstrap() {
     }),
   );
 
-  if (process.env.NODE_ENV !== 'production') {
+  const enableSwagger = process.env.SWAGGER_ENABLED !== 'false';
+  if (enableSwagger) {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('Doriv API')
       .setDescription('Doriv Backend API')
