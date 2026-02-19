@@ -10,6 +10,7 @@ import { NotionOauthController } from './notion-oauth.controller';
 import { NotionService } from './services/notion.service';
 import { NotionClientService } from './services/notion-client.service';
 import { NotionParsingService } from './services/notion-parsing.service';
+import { NotionTokenCryptoService } from './services/notion-token-crypto.service';
 import { NotionOauthService } from './notion-oauth.service';
 
 @Module({
@@ -23,6 +24,12 @@ import { NotionOauthService } from './notion-oauth.service';
     }),
   ],
   controllers: [NotionController, NotionOauthController],
-  providers: [NotionService, NotionClientService, NotionParsingService, NotionOauthService],
+  providers: [
+    NotionService,
+    NotionClientService,
+    NotionParsingService,
+    NotionTokenCryptoService,
+    NotionOauthService,
+  ],
 })
 export class NotionModule {}

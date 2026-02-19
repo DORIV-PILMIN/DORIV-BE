@@ -19,26 +19,32 @@ export class JwtAuthGuard implements CanActivate {
       headers: Record<string, string | undefined>;
       user?: { userId: string };
     }>();
+
     const authHeader = request.headers.authorization;
     if (!authHeader) {
-      throw new UnauthorizedException('Authorization 헤더가 없습니다.');
+      throw new UnauthorizedException('Authorization header is missing.');
     }
 
     const [scheme, token] = authHeader.split(' ');
     if (scheme?.toLowerCase() !== 'bearer' || !token) {
-      throw new UnauthorizedException('Authorization 헤더가 올바르지 않습니다.');
+      throw new UnauthorizedException('Authorization header format is invalid.');
     }
 
     const secret = this.configService.getOrThrow<string>('JWT_ACCESS_SECRET');
+
     let payload: AccessTokenPayload;
     try {
       payload = await this.jwtService.verifyAsync<AccessTokenPayload>(token, { secret });
     } catch {
-      throw new UnauthorizedException('액세스 토큰이 유효하지 않습니다.');
+      throw new UnauthorizedException('Access token is invalid.');
+    }
+
+    if (!payload?.sub || typeof payload.sub !== 'string' || payload.sub.trim() === '') {
+      throw new UnauthorizedException('Access token is invalid.');
     }
 
     if (payload.typ && payload.typ !== 'access') {
-      throw new UnauthorizedException('액세스 토큰이 유효하지 않습니다.');
+      throw new UnauthorizedException('Access token is invalid.');
     }
 
     request.user = { userId: payload.sub };

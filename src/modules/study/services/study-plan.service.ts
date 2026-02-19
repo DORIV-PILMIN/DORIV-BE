@@ -1,4 +1,4 @@
-﻿import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotionPage } from '../../notion/entities/notion-page.entity';
@@ -12,6 +12,8 @@ import { StudyPlanResponseDto } from '../dtos/study-plan-response.dto';
 @Injectable()
 export class StudyPlanService {
   private readonly timezone = 'Asia/Seoul';
+  private static readonly KST_OFFSET_HOURS = 9;
+  private static readonly MS_PER_DAY = 24 * 60 * 60 * 1000;
 
   constructor(
     @InjectRepository(StudyPlan)
@@ -28,12 +30,12 @@ export class StudyPlanService {
   async createPlan(userId: string, dto: StudyPlanRequestDto): Promise<StudyPlanResponseDto> {
     const page = await this.notionPageRepository.findOne({ where: { pageId: dto.pageId } });
     if (!page || page.userId !== userId) {
-      throw new BadRequestException('노션 페이지를 찾을 수 없습니다.');
+      throw new BadRequestException('Notion page is not found.');
     }
 
     const total = dto.days * dto.questionsPerDay;
     if (total > 35) {
-      throw new BadRequestException('총 질문 수는 최대 35개입니다.');
+      throw new BadRequestException('Total question count must be less than or equal to 35.');
     }
 
     const startsAt = this.getTodayDateInKst();
@@ -61,7 +63,7 @@ export class StudyPlanService {
         schedule.failureReason = 'latest snapshot not found';
       }
       await this.studyScheduleRepository.save(schedules);
-      throw new BadRequestException('페이지 스냅샷을 찾을 수 없습니다.');
+      throw new BadRequestException('Latest page snapshot is not found.');
     }
 
     for (const schedule of schedules) {
@@ -96,24 +98,17 @@ export class StudyPlanService {
 
   private buildSchedules(planId: string, days: number): StudySchedule[] {
     const schedules: StudySchedule[] = [];
-    const kstToday = this.getKstDate();
 
-    for (let i = 0; i < days; i += 1) {
-      const targetKst = new Date(kstToday);
-      targetKst.setDate(targetKst.getDate() + i);
-      const scheduledAtUtc = new Date(Date.UTC(
-        targetKst.getFullYear(),
-        targetKst.getMonth(),
-        targetKst.getDate(),
-        0,
-        0,
-        0,
-      ));
+    for (let dayOffset = 0; dayOffset < days; dayOffset += 1) {
+      const { year, month, day } = this.getKstDateParts(dayOffset);
+      const scheduledAtUtc = new Date(
+        Date.UTC(year, month, day, -StudyPlanService.KST_OFFSET_HOURS, 0, 0),
+      );
 
       schedules.push(
         this.studyScheduleRepository.create({
           planId,
-          dayIndex: i,
+          dayIndex: dayOffset,
           scheduledAt: scheduledAtUtc,
           status: 'PENDING',
           snapshotId: null,
@@ -126,16 +121,26 @@ export class StudyPlanService {
     return schedules;
   }
 
-  private getKstDate(): Date {
-    return new Date(Date.now() + 9 * 60 * 60 * 1000);
+  private getKstDateParts(dayOffset = 0): { year: number; month: number; day: number } {
+    const now = Date.now();
+    const kstMs =
+      now +
+      StudyPlanService.KST_OFFSET_HOURS * 60 * 60 * 1000 +
+      dayOffset * StudyPlanService.MS_PER_DAY;
+    const kstDate = new Date(kstMs);
+
+    return {
+      year: kstDate.getUTCFullYear(),
+      month: kstDate.getUTCMonth(),
+      day: kstDate.getUTCDate(),
+    };
   }
 
   private getTodayDateInKst(): string {
-    const kst = this.getKstDate();
-    const y = kst.getFullYear();
-    const m = String(kst.getMonth() + 1).padStart(2, '0');
-    const d = String(kst.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
+    const { year, month, day } = this.getKstDateParts(0);
+    const m = String(month + 1).padStart(2, '0');
+    const d = String(day).padStart(2, '0');
+    return `${year}-${m}-${d}`;
   }
 
   private async getLatestSnapshot(pageId: string): Promise<PageSnapshot | null> {

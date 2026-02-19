@@ -3,7 +3,6 @@ import { createHash } from 'crypto';
 
 @Injectable()
 export class NotionParsingService {
-  // 노션 응답에서 제목/본문 텍스트/해시를 추출하는 전담 서비스
   extractTitleFromPage(page: Record<string, any>): string {
     const properties = page?.properties ?? {};
     const titleProperty = Object.values(properties).find(
@@ -19,7 +18,6 @@ export class NotionParsingService {
   }
 
   extractPlainTextFromBlocks(blocks: unknown[]): string {
-    // 블록 트리에서 텍스트만 추출
     const lines: string[] = [];
 
     const walk = (items: unknown[]) => {
@@ -51,7 +49,6 @@ export class NotionParsingService {
   }
 
   createContentHash(notionPageId: string, content: Record<string, unknown>): string {
-    // 페이지 스냅샷 중복 방지용 해시
     const raw = `${notionPageId}:${JSON.stringify(content)}`;
     return createHash('sha256').update(raw).digest('hex');
   }

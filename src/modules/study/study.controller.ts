@@ -1,5 +1,12 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags, ApiUnauthorizedResponse } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUserId } from '../../common/decorators/current-user-id.decorator';
 import { StudyPlanRequestDto } from './dtos/study-plan-request.dto';
@@ -14,10 +21,10 @@ export class StudyController {
   constructor(private readonly studyPlanService: StudyPlanService) {}
 
   @Post('plans')
-  @ApiOperation({ summary: '학습 플랜 생성' })
+  @ApiOperation({ summary: 'Create study plan' })
   @ApiBody({ type: StudyPlanRequestDto })
-  @ApiOkResponse({ type: StudyPlanResponseDto, description: '생성된 학습 플랜 정보' })
-  @ApiUnauthorizedResponse({ description: '인증이 필요합니다.' })
+  @ApiOkResponse({ type: StudyPlanResponseDto, description: 'Created study plan.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication is required.' })
   createPlan(
     @CurrentUserId() userId: string,
     @Body() dto: StudyPlanRequestDto,

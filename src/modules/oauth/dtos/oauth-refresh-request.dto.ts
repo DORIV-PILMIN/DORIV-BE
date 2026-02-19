@@ -2,7 +2,6 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
 export class OauthRefreshRequestDto {
-  // 리프레시 토큰
   @ApiProperty({ example: 'refresh.jwt.token' })
   @IsString()
   @IsNotEmpty()

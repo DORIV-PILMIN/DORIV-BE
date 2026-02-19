@@ -8,7 +8,7 @@ export class AppService implements OnModuleInit {
   constructor(private readonly dataSource: DataSource) {}
 
   async onModuleInit(): Promise<void> {
-    // Ensure critical indexes exist even when DB synchronize is disabled in production.
+    // Ensure critical indexes exist even when DB synchronize is disabled.
     await this.ensureCriticalIndexes();
   }
 
@@ -16,6 +16,9 @@ export class AppService implements OnModuleInit {
     const queries = [
       'CREATE UNIQUE INDEX IF NOT EXISTS ux_question_status_user_question ON question_status (user_id, question_id)',
       'CREATE INDEX IF NOT EXISTS ix_study_schedules_status_scheduled_at ON study_schedules (status, scheduled_at)',
+      'CREATE UNIQUE INDEX IF NOT EXISTS ux_oauth_users_provider_provider_user_id ON oauth_users (provider, provider_user_id)',
+      'DROP INDEX IF EXISTS ux_oauth_provider_user_id',
+      'CREATE UNIQUE INDEX IF NOT EXISTS ux_notion_connections_user_id ON notion_connections (user_id)',
     ];
 
     for (const query of queries) {
@@ -28,7 +31,6 @@ export class AppService implements OnModuleInit {
     }
   }
 
-  // Basic health check response.
   getHello(): string {
     return 'Hello World!';
   }

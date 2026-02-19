@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { createHmac, randomBytes } from 'crypto';
 import { NotionConnection } from './entities/notion-connection.entity';
+import { NotionTokenCryptoService } from './services/notion-token-crypto.service';
 
 type NotionTokenResponse = {
   access_token: string;
@@ -17,7 +18,6 @@ type NotionTokenResponse = {
 
 @Injectable()
 export class NotionOauthService {
-  // Notion OAuth URL 생성 및 토큰 교환/저장을 담당
   private readonly clientId: string;
   private readonly clientSecret: string;
   private readonly redirectUri: string;
@@ -29,6 +29,7 @@ export class NotionOauthService {
     private readonly configService: ConfigService,
     @InjectRepository(NotionConnection)
     private readonly notionConnectionRepository: Repository<NotionConnection>,
+    private readonly notionTokenCryptoService: NotionTokenCryptoService,
   ) {
     this.clientId = configService.get<string>('NOTION_OAUTH_CLIENT_ID') ?? '';
     this.clientSecret = configService.get<string>('NOTION_OAUTH_CLIENT_SECRET') ?? '';
@@ -41,9 +42,8 @@ export class NotionOauthService {
   }
 
   buildAuthorizeUrl(userId: string): string {
-    // OAuth 승인 화면으로 이동할 URL 생성
     if (!this.clientId || !this.redirectUri) {
-      throw new InternalServerErrorException('Notion OAuth 설정이 필요합니다.');
+      throw new InternalServerErrorException('Notion OAuth configuration is required.');
     }
 
     const state = this.createState(userId);
@@ -54,61 +54,63 @@ export class NotionOauthService {
       response_type: 'code',
       state,
     });
+
     return `https://api.notion.com/v1/oauth/authorize?${params.toString()}`;
   }
 
   async handleCallback(code: string, state: string): Promise<NotionConnection> {
-    // 콜백 처리: state 검증 -> 토큰 교환 -> 연결 저장
     const userId = this.verifyState(state);
     const token = await this.exchangeCodeForToken(code);
-
-    const connection = await this.upsertConnection(userId, token);
-    return connection;
+    return this.upsertConnection(userId, token);
   }
 
   private createState(userId: string): string {
-    // CSRF 방지용 state 생성
     if (!this.stateSecret) {
-      throw new InternalServerErrorException('NOTION_OAUTH_STATE_SECRET 설정이 필요합니다.');
+      throw new InternalServerErrorException('NOTION_OAUTH_STATE_SECRET is required.');
     }
+
     const payload = {
       userId,
       ts: Date.now(),
       nonce: randomBytes(8).toString('hex'),
     };
+
     const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
     const signature = createHmac('sha256', this.stateSecret).update(encoded).digest('hex');
     return `${encoded}.${signature}`;
   }
 
   private verifyState(state: string): string {
-    // state 무결성/만료 검증
     const parts = state.split('.');
     if (parts.length !== 2) {
-      throw new BadRequestException('잘못된 state 값입니다.');
+      throw new BadRequestException('Invalid state value.');
     }
+
     const [encoded, signature] = parts;
     const expected = createHmac('sha256', this.stateSecret).update(encoded).digest('hex');
     if (expected !== signature) {
-      throw new BadRequestException('잘못된 state 값입니다.');
+      throw new BadRequestException('Invalid state value.');
     }
+
     const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as {
       userId: string;
       ts: number;
     };
+
     if (!payload?.userId || !payload?.ts) {
-      throw new BadRequestException('잘못된 state 값입니다.');
+      throw new BadRequestException('Invalid state value.');
     }
+
     if (Date.now() - payload.ts > this.stateTtlMs) {
-      throw new BadRequestException('state 값이 만료되었습니다.');
+      throw new BadRequestException('State value is expired.');
     }
+
     return payload.userId;
   }
 
   private async exchangeCodeForToken(code: string): Promise<NotionTokenResponse> {
-    // authorization code -> access token 교환
     if (!this.clientId || !this.clientSecret || !this.redirectUri) {
-      throw new InternalServerErrorException('Notion OAuth 설정이 필요합니다.');
+      throw new InternalServerErrorException('Notion OAuth configuration is required.');
     }
 
     const basic = Buffer.from(`${this.clientId}:${this.clientSecret}`, 'utf8').toString('base64');
@@ -129,7 +131,7 @@ export class NotionOauthService {
     if (!response.ok) {
       const errorBody = await response.text();
       throw new BadRequestException({
-        message: '노션 OAuth 토큰 변경에 실패했습니다.',
+        message: 'Failed to exchange Notion OAuth token.',
         statusCode: response.status,
         body: errorBody,
       });
@@ -142,19 +144,22 @@ export class NotionOauthService {
     userId: string,
     token: NotionTokenResponse,
   ): Promise<NotionConnection> {
-    // 사용자별 노션 연결 저장/갱신
-    const existing = await this.notionConnectionRepository.findOne({ where: { userId } });
-    if (existing) {
-      existing.accessToken = token.access_token;
-      existing.workspaceId = token.workspace_id;
-      return this.notionConnectionRepository.save(existing);
+    const encryptedToken = this.notionTokenCryptoService.encrypt(token.access_token);
+
+    await this.notionConnectionRepository.upsert(
+      {
+        userId,
+        accessToken: encryptedToken,
+        workspaceId: token.workspace_id,
+      },
+      ['userId'],
+    );
+
+    const saved = await this.notionConnectionRepository.findOne({ where: { userId } });
+    if (!saved) {
+      throw new InternalServerErrorException('Failed to persist Notion connection.');
     }
 
-    const connection = this.notionConnectionRepository.create({
-      userId,
-      accessToken: token.access_token,
-      workspaceId: token.workspace_id,
-    });
-    return this.notionConnectionRepository.save(connection);
+    return saved;
   }
 }

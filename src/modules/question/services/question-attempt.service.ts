@@ -1,4 +1,4 @@
-﻿import { BadRequestException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Question } from '../entities/question.entity';
@@ -25,9 +25,16 @@ export class QuestionAttemptService {
     questionId: string,
     dto: QuestionAttemptRequestDto,
   ): Promise<QuestionAttemptResultDto> {
-    const question = await this.questionRepository.findOne({ where: { questionId } });
+    const question = await this.questionRepository
+      .createQueryBuilder('q')
+      .innerJoin('page_snapshots', 'ps', 'ps.snapshot_id = q.snapshot_id')
+      .innerJoin('notion_pages', 'np', 'np.page_id = ps.page_id')
+      .where('q.question_id = :questionId', { questionId })
+      .andWhere('np.user_id = :userId', { userId })
+      .getOne();
+
     if (!question) {
-      throw new BadRequestException('질문을 찾을 수 없습니다.');
+      throw new ForbiddenException('You do not have access to this question.');
     }
 
     const attempt = this.questionAttemptRepository.create({

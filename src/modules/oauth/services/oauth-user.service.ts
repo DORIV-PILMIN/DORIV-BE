@@ -8,7 +8,6 @@ import { ProviderUserProfile } from './oauth-provider.service';
 
 @Injectable()
 export class OauthUserService {
-  // OAuth 사용자 매핑 및 User/OauthUser 업서트
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -16,7 +15,6 @@ export class OauthUserService {
     private readonly oauthUserRepository: Repository<OauthUser>,
   ) {}
 
-  // provider 프로필 기준으로 User/OauthUser 생성 또는 갱신
   async upsertUser(params: {
     provider: OauthProvider;
     profile: ProviderUserProfile;

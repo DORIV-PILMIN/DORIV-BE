@@ -21,7 +21,6 @@ type NotionBlockChildrenResponse = {
 
 @Injectable()
 export class NotionClientService {
-  // Notion API 호출 전담(공통 헤더/타임아웃/재시도 처리)
   private readonly token: string;
   private readonly version: string;
   private readonly timeoutMs: number;
@@ -39,7 +38,6 @@ export class NotionClientService {
     token: string | undefined,
     params: NotionSearchParams,
   ): Promise<NotionSearchResponse> {
-    // 검색 API: 페이지 목록 조회
     const body = {
       query: params.query,
       filter: { property: 'object', value: 'page' },
@@ -51,7 +49,6 @@ export class NotionClientService {
   }
 
   async retrievePage(token: string | undefined, pageId: string): Promise<Record<string, unknown>> {
-    // 페이지 메타 정보 조회
     return this.request<Record<string, unknown>>(token, 'GET', `/pages/${pageId}`);
   }
 
@@ -60,7 +57,6 @@ export class NotionClientService {
     blockId: string,
     maxDepth = 2,
   ): Promise<unknown[]> {
-    // 블록 트리 전체 조회(깊이 제한)
     return this.retrieveBlockChildrenRecursive(token, blockId, maxDepth, 0);
   }
 
@@ -102,7 +98,6 @@ export class NotionClientService {
     blockId: string,
     startCursor?: string | null,
   ): Promise<NotionBlockChildrenResponse> {
-    // 블록 children 페이지네이션 처리
     const query = new URLSearchParams();
     query.set('page_size', '100');
     if (startCursor) {
@@ -150,19 +145,16 @@ export class NotionClientService {
 
       const errorBody = await response.text();
       throw new BadRequestException({
-        message: '노션 API 요청에 실패했습니다.',
+        message: 'Notion API 요청에 실패했습니다.',
         statusCode: response.status,
         body: errorBody,
       });
     }
 
-    throw new BadRequestException('노션 API 요청에 실패했습니다.');
+    throw new BadRequestException('Notion API 요청에 실패했습니다.');
   }
 
-  private async fetchWithTimeout(
-    url: string,
-    options: RequestInit,
-  ): Promise<Response> {
+  private async fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
     try {

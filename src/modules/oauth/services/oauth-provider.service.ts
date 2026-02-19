@@ -19,10 +19,8 @@ export type ProviderUserProfile = {
 
 @Injectable()
 export class OauthProviderService {
-  // OAuth 제공자 토큰 교환 및 프로필 조회
   constructor(private readonly configService: ConfigService) {}
 
-  // 인가 코드 -> 액세스 토큰 교환
   async exchangeCodeForToken(dto: OauthLoginRequestDto): Promise<ProviderTokenResponse> {
     switch (dto.provider) {
       case OauthProvider.KAKAO:
@@ -30,11 +28,10 @@ export class OauthProviderService {
       case OauthProvider.GOOGLE:
         return this.exchangeGoogleToken(dto);
       default:
-        throw new BadRequestException('지원하지 않는 공급자입니다.');
+        throw new BadRequestException('Unsupported OAuth provider.');
     }
   }
 
-  // 액세스 토큰으로 사용자 프로필 조회
   async fetchUserProfile(provider: OauthProvider, accessToken: string): Promise<ProviderUserProfile> {
     switch (provider) {
       case OauthProvider.KAKAO:
@@ -42,11 +39,10 @@ export class OauthProviderService {
       case OauthProvider.GOOGLE:
         return this.fetchGoogleProfile(accessToken);
       default:
-        throw new BadRequestException('지원하지 않는 공급자입니다.');
+        throw new BadRequestException('Unsupported OAuth provider.');
     }
   }
 
-  // 카카오 토큰 교환
   private async exchangeKakaoToken(dto: OauthLoginRequestDto): Promise<ProviderTokenResponse> {
     const clientId = this.configService.getOrThrow<string>('KAKAO_CLIENT_ID');
     const clientSecret = this.configService.getOrThrow<string>('KAKAO_CLIENT_SECRET');
@@ -67,7 +63,6 @@ export class OauthProviderService {
     };
   }
 
-  // 구글 토큰 교환
   private async exchangeGoogleToken(dto: OauthLoginRequestDto): Promise<ProviderTokenResponse> {
     const clientId = this.configService.getOrThrow<string>('GOOGLE_CLIENT_ID');
     const clientSecret = this.configService.getOrThrow<string>('GOOGLE_CLIENT_SECRET');
@@ -92,7 +87,6 @@ export class OauthProviderService {
     };
   }
 
-  // 카카오 프로필 조회
   private async fetchKakaoProfile(accessToken: string): Promise<ProviderUserProfile> {
     const data = await this.getJson('https://kapi.kakao.com/v2/user/me', accessToken);
     const kakaoAccount = data.kakao_account ?? {};
@@ -109,10 +103,10 @@ export class OauthProviderService {
     };
   }
 
-  // 구글 프로필 조회
   private async fetchGoogleProfile(accessToken: string): Promise<ProviderUserProfile> {
     const data = await this.getJson('https://openidconnect.googleapis.com/v1/userinfo', accessToken);
     const name = data.name ?? (data.email ? data.email.split('@')[0] : 'google_user');
+
     return {
       providerUserId: String(data.sub),
       email: data.email ?? null,
@@ -121,7 +115,6 @@ export class OauthProviderService {
     };
   }
 
-  // x-www-form-urlencoded POST 공통
   private async postForm(url: string, body: URLSearchParams): Promise<Record<string, any>> {
     const response = await this.fetchWithTimeout(url, {
       method: 'POST',
@@ -130,46 +123,48 @@ export class OauthProviderService {
       },
       body,
     });
+
     const data = await this.safeJson(response);
     if (!response.ok) {
       throw new BadRequestException({
-        message: 'OAuth 토큰 교환에 실패했습니다.',
+        message: 'Failed to exchange OAuth token.',
         details: data,
       });
     }
+
     return data;
   }
 
-  // Bearer 인증 GET 공통
   private async getJson(url: string, accessToken: string): Promise<Record<string, any>> {
     const response = await this.fetchWithTimeout(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
+
     const data = await this.safeJson(response);
     if (!response.ok) {
       throw new BadRequestException({
-        message: 'OAuth 사용자 프로필 조회에 실패했습니다.',
+        message: 'Failed to fetch OAuth user profile.',
         details: data,
       });
     }
+
     return data;
   }
 
-  // OAuth HTTP 호출 타임아웃(ms)
   private getOauthTimeoutMs(): number {
     return this.configService.getOrThrow<number>('OAUTH_HTTP_TIMEOUT_MS');
   }
 
-  // 타임아웃 포함 fetch
   private async fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
     const controller = new AbortController();
     const timeoutMs = this.getOauthTimeoutMs();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
     try {
       return await fetch(url, { ...options, signal: controller.signal });
     } catch (error) {
       if ((error as Error).name === 'AbortError') {
-        throw new BadRequestException('OAuth 공급자 요청이 시간 초과되었습니다.');
+        throw new BadRequestException('OAuth provider request timed out.');
       }
       throw error;
     } finally {
@@ -177,7 +172,6 @@ export class OauthProviderService {
     }
   }
 
-  // JSON 파싱 실패 대비
   private async safeJson(response: Response): Promise<Record<string, any>> {
     try {
       return (await response.json()) as Record<string, any>;

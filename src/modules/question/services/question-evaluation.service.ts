@@ -8,7 +8,6 @@ type EvaluationResult = {
 
 @Injectable()
 export class QuestionEvaluationService {
-  // 사용자 답변 평가 전담(Gemini 호출)
   constructor(private readonly geminiClient: GeminiClientService) {}
 
   async evaluate(question: string, answer: string): Promise<EvaluationResult> {
@@ -17,10 +16,10 @@ export class QuestionEvaluationService {
     const parsed = this.parseEvaluation(raw);
 
     if (parsed.score < 0 || parsed.score > 100) {
-      throw new BadRequestException('평가 점수 범위가 올바르지 않습니다.');
+      throw new BadRequestException('Score out of allowed range.');
     }
     if (!parsed.feedback) {
-      throw new BadRequestException('피드백이 비어있습니다.');
+      throw new BadRequestException('Feedback is empty.');
     }
 
     return parsed;
@@ -28,14 +27,14 @@ export class QuestionEvaluationService {
 
   private buildPrompt(question: string, answer: string): string {
     return [
-      '너는 면접 답변 평가자다.',
-      '질문과 답변을 보고 0~100 점수와 피드백을 JSON으로만 출력해라.',
-      '출력 형식: {"score": 0-100, "feedback": "..."}',
+      'You are an interview answer evaluator.',
+      'Read the question and answer, then output score and feedback as JSON only.',
+      'Output format: {"score": 0-100, "feedback": "..."}',
       '',
-      '질문:',
+      'Question:',
       question,
       '',
-      '답변:',
+      'Answer:',
       answer,
     ].join('\n');
   }
@@ -46,7 +45,6 @@ export class QuestionEvaluationService {
       trimmed = trimmed.replace(/^```[a-zA-Z]*\s*/, '').replace(/```$/, '').trim();
     }
 
-    // JSON 객체 구간만 추출 시도
     const startIdx = trimmed.indexOf('{');
     const endIdx = trimmed.lastIndexOf('}');
     if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
@@ -61,6 +59,6 @@ export class QuestionEvaluationService {
       }
     }
 
-    throw new BadRequestException('AI 평가 결과 파싱에 실패했습니다.');
+    throw new BadRequestException('Failed to parse AI evaluation response.');
   }
 }

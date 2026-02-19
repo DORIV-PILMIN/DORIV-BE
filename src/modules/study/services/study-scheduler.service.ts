@@ -74,6 +74,7 @@ export class StudySchedulerService implements OnModuleInit, OnModuleDestroy {
         schedule.status = 'PROCESSING';
         schedule.failureReason = null;
       }
+
       if (dueSchedules.length > 0) {
         await queryRunner.manager.save(StudySchedule, dueSchedules);
       }
@@ -120,15 +121,14 @@ export class StudySchedulerService implements OnModuleInit, OnModuleDestroy {
         schedule.generatedAt = new Date();
       }
 
+      const pushResult = await this.pushService.sendToUser(plan.userId, {});
+      if (pushResult.successCount === 0 && pushResult.failureCount > 0) {
+        throw new Error('push send failed');
+      }
+
       schedule.status = 'SENT';
       schedule.failureReason = null;
       await this.scheduleRepository.save(schedule);
-
-      this.pushService.sendToUser(plan.userId, { title: undefined, body: undefined }).catch((error: unknown) => {
-        this.logger.warn(
-          `Failed to send push for schedule ${schedule.scheduleId}: ${this.formatError(error)}`,
-        );
-      });
     } catch (error) {
       schedule.status = 'FAILED';
       schedule.failureReason = this.formatError(error);

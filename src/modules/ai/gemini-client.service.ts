@@ -11,7 +11,6 @@ type GeminiGenerateResponse = {
 
 @Injectable()
 export class GeminiClientService {
-  // Gemini API 호출 전담(모델/타임아웃/응답 파싱)
   private readonly apiKey: string;
   private readonly model: string;
   private readonly timeoutMs: number;
@@ -24,7 +23,7 @@ export class GeminiClientService {
 
   async generateText(prompt: string): Promise<string> {
     if (!this.apiKey) {
-      throw new InternalServerErrorException('GEMINI_API_KEY 설정이 필요합니다.');
+      throw new InternalServerErrorException('GEMINI_API_KEY is required.');
     }
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`;
@@ -42,7 +41,7 @@ export class GeminiClientService {
     if (!response.ok) {
       const errorBody = await response.text();
       throw new BadRequestException({
-        message: 'Gemini 질문 생성 요청에 실패했습니다.',
+        message: 'Gemini request failed.',
         statusCode: response.status,
         body: errorBody,
       });
@@ -51,8 +50,9 @@ export class GeminiClientService {
     const data = (await response.json()) as GeminiGenerateResponse;
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) {
-      throw new BadRequestException('Gemini 응답이 비어있습니다.');
+      throw new BadRequestException('Gemini response is empty.');
     }
+
     return text;
   }
 
@@ -63,7 +63,7 @@ export class GeminiClientService {
       return await fetch(url, { ...options, signal: controller.signal });
     } catch (error) {
       if ((error as Error).name === 'AbortError') {
-        throw new BadRequestException('Gemini 요청이 시간 초과되었습니다.');
+        throw new BadRequestException('Gemini request timed out.');
       }
       throw error;
     } finally {

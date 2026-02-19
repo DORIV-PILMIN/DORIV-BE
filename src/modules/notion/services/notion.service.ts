@@ -1,4 +1,4 @@
-﻿import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotionPage } from '../entities/notion-page.entity';
@@ -6,6 +6,7 @@ import { PageSnapshot } from '../entities/page-snapshot.entity';
 import { NotionConnection } from '../entities/notion-connection.entity';
 import { NotionClientService } from './notion-client.service';
 import { NotionParsingService } from './notion-parsing.service';
+import { NotionTokenCryptoService } from './notion-token-crypto.service';
 import { NotionSearchRequestDto } from '../dtos/notion-search-request.dto';
 import { NotionSearchPagesResponseDto } from '../dtos/notion-search-pages-response.dto';
 import { NotionPageSummaryDto } from '../dtos/notion-page-summary.dto';
@@ -26,6 +27,7 @@ export class NotionService {
     private readonly notionConnectionRepository: Repository<NotionConnection>,
     private readonly notionClient: NotionClientService,
     private readonly parsingService: NotionParsingService,
+    private readonly notionTokenCryptoService: NotionTokenCryptoService,
   ) {}
 
   async searchPagesOnly(
@@ -44,14 +46,14 @@ export class NotionService {
     });
     if (existing) {
       if (existing.userId !== userId) {
-        throw new ConflictException('이미 다른 사용자에게 연결된 페이지입니다.');
+        throw new ConflictException('This page is already linked to another user.');
       }
       return { page: this.toNotionPageDto(existing) };
     }
 
     const currentCount = await this.notionPageRepository.count({ where: { userId } });
     if (currentCount >= NotionService.MAX_PAGES_PER_USER) {
-      throw new BadRequestException('노션 페이지는 최대 5개까지 연결할 수 있습니다.');
+      throw new BadRequestException('You can connect up to 5 Notion pages.');
     }
 
     const page = await this.notionClient.retrievePage(token, notionPageId);
@@ -108,12 +110,12 @@ export class NotionService {
       return dto.notionPageId;
     }
     if (!dto.notionUrl) {
-      throw new BadRequestException('notionUrl 또는 notionPageId가 필요합니다.');
+      throw new BadRequestException('notionUrl or notionPageId is required.');
     }
 
     const idFromUrl = this.extractPageIdFromUrl(dto.notionUrl);
     if (!idFromUrl) {
-      throw new BadRequestException('노션 페이지 URL에서 pageId를 찾을 수 없습니다.');
+      throw new BadRequestException('Cannot extract pageId from Notion URL.');
     }
     return idFromUrl;
   }
@@ -164,8 +166,8 @@ export class NotionService {
   private async getUserAccessTokenOrThrow(userId: string): Promise<string> {
     const connection = await this.notionConnectionRepository.findOne({ where: { userId } });
     if (!connection?.accessToken) {
-      throw new BadRequestException('노션 연결이 필요합니다.');
+      throw new BadRequestException('Notion connection is required.');
     }
-    return connection.accessToken;
+    return this.notionTokenCryptoService.decrypt(connection.accessToken);
   }
 }

@@ -20,7 +20,6 @@ type AccessTokenPayload = {
 
 @Injectable()
 export class OauthTokenService {
-  // 액세스/리프레시 토큰 발급 및 검증/해시 처리
   constructor(
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
@@ -28,7 +27,6 @@ export class OauthTokenService {
     private readonly refreshTokenRepository: Repository<RefreshToken>,
   ) {}
 
-  // 리프레시 토큰 검증 및 payload 추출
   async verifyRefreshToken(rawToken: string): Promise<RefreshTokenPayload> {
     const refreshSecret = this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
     try {
@@ -36,11 +34,10 @@ export class OauthTokenService {
         secret: refreshSecret,
       });
     } catch {
-      throw new UnauthorizedException('유효하지 않은 리프레시 토큰입니다.');
+      throw new UnauthorizedException('Refresh token is invalid.');
     }
   }
 
-  // 응답 포맷 생성(만료 시간 포함)
   buildTokenResponse(params: {
     accessToken: string;
     refreshToken: string;
@@ -65,18 +62,17 @@ export class OauthTokenService {
     };
   }
 
-  // 액세스 토큰 발급
   async createAccessToken(userId: string): Promise<string> {
     const accessSecret = this.configService.getOrThrow<string>('JWT_ACCESS_SECRET');
     const accessTokenMinutes = this.configService.getOrThrow<number>('ACCESS_TOKEN_MINUTES');
     const payload: AccessTokenPayload = { sub: userId, typ: 'access' };
+
     return this.jwtService.signAsync(payload, {
       secret: accessSecret,
       expiresIn: `${accessTokenMinutes}m`,
     });
   }
 
-  // 리프레시 토큰 발급 + DB 저장
   async createRefreshToken(
     userId: string,
     repository: Repository<RefreshToken> = this.refreshTokenRepository,
@@ -85,13 +81,15 @@ export class OauthTokenService {
     const refreshTokenDays = this.configService.getOrThrow<number>('REFRESH_TOKEN_DAYS');
     const refreshTokenId = randomUUID();
     const payload: RefreshTokenPayload = { sub: userId, jti: refreshTokenId, typ: 'refresh' };
+
     const rawToken = await this.jwtService.signAsync(payload, {
       secret: refreshSecret,
       expiresIn: `${refreshTokenDays}d`,
     });
-    const tokenHash = this.hashToken(rawToken);
 
+    const tokenHash = this.hashToken(rawToken);
     const expiresAt = new Date(Date.now() + refreshTokenDays * 24 * 60 * 60 * 1000);
+
     const entity = repository.create({
       refreshTokenId,
       userId,
@@ -103,7 +101,6 @@ export class OauthTokenService {
     return { rawToken, refreshTokenId };
   }
 
-  // 토큰 해시 생성
   hashToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
   }
