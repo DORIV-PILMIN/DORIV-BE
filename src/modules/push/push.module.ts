@@ -6,6 +6,10 @@ import { PushToken } from './entities/push-token.entity';
 import { PushSendLog } from './entities/push-send-log.entity';
 import { PushController } from './push.controller';
 import { PushService } from './push.service';
+import { FcmAuthService } from './services/fcm-auth.service';
+import { FcmMessageService } from './services/fcm-message.service';
+import { PushLogService } from './services/push-log.service';
+import { PushTokenService } from './services/push-token.service';
 
 @Module({
   imports: [
@@ -18,7 +22,13 @@ import { PushService } from './push.service';
     }),
   ],
   controllers: [PushController],
-  providers: [PushService],
+  providers: [
+    PushService,
+    PushTokenService,
+    PushLogService,
+    FcmAuthService,
+    FcmMessageService,
+  ],
   exports: [PushService],
 })
 export class PushModule {}

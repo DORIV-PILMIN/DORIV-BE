@@ -9,6 +9,10 @@ import { QuestionStatus } from '../question/entities/question-status.entity';
 import { Question } from '../question/entities/question.entity';
 import { QuestionAttempt } from '../question/entities/question-attempt.entity';
 import { User } from '../user/entities/user.entity';
+import { MainNotionSummaryService } from './services/main-notion-summary.service';
+import { MainQuestionSummaryService } from './services/main-question-summary.service';
+import { MainStatsService } from './services/main-stats.service';
+import { MainUserService } from './services/main-user.service';
 
 @Module({
   imports: [
@@ -21,6 +25,12 @@ import { User } from '../user/entities/user.entity';
     }),
   ],
   controllers: [MainController],
-  providers: [MainService],
+  providers: [
+    MainService,
+    MainUserService,
+    MainNotionSummaryService,
+    MainQuestionSummaryService,
+    MainStatsService,
+  ],
 })
 export class MainModule {}

@@ -12,6 +12,9 @@ import { NotionClientService } from './services/notion-client.service';
 import { NotionParsingService } from './services/notion-parsing.service';
 import { NotionTokenCryptoService } from './services/notion-token-crypto.service';
 import { NotionOauthService } from './notion-oauth.service';
+import { NotionConnectionAccessService } from './services/notion-connection-access.service';
+import { NotionPageSearchService } from './services/notion-page-search.service';
+import { NotionPageConnectService } from './services/notion-page-connect.service';
 
 @Module({
   imports: [
@@ -30,6 +33,9 @@ import { NotionOauthService } from './notion-oauth.service';
     NotionParsingService,
     NotionTokenCryptoService,
     NotionOauthService,
+    NotionConnectionAccessService,
+    NotionPageSearchService,
+    NotionPageConnectService,
   ],
 })
 export class NotionModule {}

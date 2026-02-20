@@ -12,6 +12,10 @@ import { StudySchedule } from './entities/study-schedule.entity';
 import { StudyPlanService } from './services/study-plan.service';
 import { StudySchedulerService } from './services/study-scheduler.service';
 import { StudyController } from './study.controller';
+import { StudyPlanCreationService } from './services/study-plan-creation.service';
+import { StudyScheduleBuilderService } from './services/study-schedule-builder.service';
+import { StudyScheduleClaimService } from './services/study-schedule-claim.service';
+import { StudyScheduleProcessingService } from './services/study-schedule-processing.service';
 
 @Module({
   imports: [
@@ -25,7 +29,14 @@ import { StudyController } from './study.controller';
     QuestionModule,
     PushModule,
   ],
-  providers: [StudyPlanService, StudySchedulerService],
+  providers: [
+    StudyPlanService,
+    StudyPlanCreationService,
+    StudyScheduleBuilderService,
+    StudyScheduleClaimService,
+    StudyScheduleProcessingService,
+    StudySchedulerService,
+  ],
   controllers: [StudyController],
 })
 export class StudyModule {}
