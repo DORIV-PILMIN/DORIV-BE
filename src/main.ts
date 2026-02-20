@@ -26,11 +26,13 @@ async function bootstrap() {
     SwaggerModule.setup('docs', app, document);
   }
 
-  const corsOrigin = process.env.CORS_ORIGIN
+  const defaultCorsOrigins = ['http://localhost:3000', 'http://127.0.0.1:3000'];
+  const envCorsOrigins = process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(',')
         .map((origin) => origin.trim())
         .filter(Boolean)
-    : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+    : [];
+  const corsOrigin = Array.from(new Set([...defaultCorsOrigins, ...envCorsOrigins]));
 
   app.enableCors({
     origin: corsOrigin,
