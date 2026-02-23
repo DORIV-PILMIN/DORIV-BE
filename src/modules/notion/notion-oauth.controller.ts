@@ -2,9 +2,10 @@ import {
   BadRequestException,
   Controller,
   Get,
-  HttpCode,
+  InternalServerErrorException,
   Query,
   Redirect,
+  Res,
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUserId } from '../../common/decorators/current-user-id.decorator';
 import { NotionOauthService } from './notion-oauth.service';
@@ -44,15 +46,14 @@ export class NotionOauthController {
   @Get('callback')
   @ApiExcludeEndpoint()
   @ApiOperation({ summary: 'Notion OAuth callback' })
-  @HttpCode(200)
   @ApiOkResponse({
     description: 'Completes Notion connection or redirects on success.',
   })
-  @Redirect()
   async callback(
     @Query('code') code: string | undefined,
     @Query('state') state: string | undefined,
-  ): Promise<{ url?: string; message?: string }> {
+    @Res() res: Response,
+  ): Promise<void> {
     if (!code || !state) {
       throw new BadRequestException('Missing code or state.');
     }
@@ -62,10 +63,12 @@ export class NotionOauthController {
     const redirectUrl = this.configService.get<string>(
       'NOTION_OAUTH_SUCCESS_REDIRECT_URL',
     );
-    if (redirectUrl) {
-      return { url: redirectUrl };
+    if (!redirectUrl) {
+      throw new InternalServerErrorException(
+        'NOTION_OAUTH_SUCCESS_REDIRECT_URL is required.',
+      );
     }
 
-    return { message: 'Notion connection completed.' };
+    res.redirect(302, redirectUrl);
   }
 }
