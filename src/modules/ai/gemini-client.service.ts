@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  GatewayTimeoutException,
+  Injectable,
+  InternalServerErrorException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 type GeminiGenerateResponse = {
@@ -40,8 +46,15 @@ export class GeminiClientService {
 
     if (!response.ok) {
       const errorBody = await response.text();
-      throw new BadRequestException({
-        message: 'Gemini request failed.',
+      if (response.status === 429) {
+        throw new ServiceUnavailableException({
+          message: 'AI service is temporarily rate limited.',
+          statusCode: response.status,
+          body: errorBody,
+        });
+      }
+      throw new BadGatewayException({
+        message: 'AI service request failed.',
         statusCode: response.status,
         body: errorBody,
       });
@@ -50,7 +63,7 @@ export class GeminiClientService {
     const data = (await response.json()) as GeminiGenerateResponse;
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) {
-      throw new BadRequestException('Gemini response is empty.');
+      throw new BadGatewayException('AI service returned an empty response.');
     }
 
     return text;
@@ -63,9 +76,9 @@ export class GeminiClientService {
       return await fetch(url, { ...options, signal: controller.signal });
     } catch (error) {
       if ((error as Error).name === 'AbortError') {
-        throw new BadRequestException('Gemini request timed out.');
+        throw new GatewayTimeoutException('AI service request timed out.');
       }
-      throw error;
+      throw new ServiceUnavailableException('AI service request failed due to a network error.');
     } finally {
       clearTimeout(timeoutId);
     }

@@ -1,4 +1,11 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadGatewayException,
+  BadRequestException,
+  GatewayTimeoutException,
+  Injectable,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OauthLoginRequestDto } from '../dtos/oauth-login-request.dto';
 import { OauthProvider } from '../dtos/oauth-provider.enum';
@@ -126,10 +133,7 @@ export class OauthProviderService {
 
     const data = await this.safeJson(response);
     if (!response.ok) {
-      throw new BadRequestException({
-        message: 'Failed to exchange OAuth token.',
-        details: data,
-      });
+      throw this.toProviderException(response.status, data, 'exchange_token');
     }
 
     return data;
@@ -142,10 +146,7 @@ export class OauthProviderService {
 
     const data = await this.safeJson(response);
     if (!response.ok) {
-      throw new BadRequestException({
-        message: 'Failed to fetch OAuth user profile.',
-        details: data,
-      });
+      throw this.toProviderException(response.status, data, 'fetch_profile');
     }
 
     return data;
@@ -164,12 +165,65 @@ export class OauthProviderService {
       return await fetch(url, { ...options, signal: controller.signal });
     } catch (error) {
       if ((error as Error).name === 'AbortError') {
-        throw new BadRequestException('OAuth provider request timed out.');
+        throw new GatewayTimeoutException('OAuth provider request timed out.');
       }
-      throw error;
+      throw new ServiceUnavailableException('OAuth provider request failed due to a network error.');
     } finally {
       clearTimeout(timeoutId);
     }
+  }
+
+  private toProviderException(
+    status: number,
+    details: Record<string, any>,
+    action: 'exchange_token' | 'fetch_profile',
+  ): Error {
+    if (action === 'exchange_token') {
+      if (status === 400) {
+        return new BadRequestException({
+          message: 'OAuth authorization data is invalid.',
+          statusCode: status,
+          details,
+        });
+      }
+      if (status === 401 || status === 403) {
+        return new UnauthorizedException({
+          message: 'OAuth provider rejected the token exchange request.',
+          statusCode: status,
+          details,
+        });
+      }
+    }
+
+    if (action === 'fetch_profile' && (status === 401 || status === 403)) {
+      return new UnauthorizedException({
+        message: 'OAuth access token is invalid or expired.',
+        statusCode: status,
+        details,
+      });
+    }
+
+    if (status === 429) {
+      return new ServiceUnavailableException({
+        message: 'OAuth provider is rate limited.',
+        statusCode: status,
+        details,
+      });
+    }
+
+    if (status >= 500) {
+      return new BadGatewayException({
+        message: 'OAuth provider request failed.',
+        statusCode: status,
+        details,
+      });
+    }
+
+    return new BadGatewayException({
+      message: 'OAuth provider request failed.',
+      statusCode: status,
+      details,
+    });
   }
 
   private async safeJson(response: Response): Promise<Record<string, any>> {

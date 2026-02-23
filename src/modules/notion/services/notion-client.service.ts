@@ -1,4 +1,11 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  BadRequestException,
+  GatewayTimeoutException,
+  Injectable,
+  InternalServerErrorException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 type NotionSearchParams = {
@@ -115,7 +122,7 @@ export class NotionClientService {
   ): Promise<T> {
     const effectiveToken = token ?? this.token;
     if (!effectiveToken) {
-      throw new InternalServerErrorException('NOTION_TOKEN 설정이 필요합니다.');
+      throw new InternalServerErrorException('NOTION_TOKEN is required.');
     }
 
     const url = `${this.baseUrl}${path}`;
@@ -144,14 +151,50 @@ export class NotionClientService {
       }
 
       const errorBody = await response.text();
-      throw new BadRequestException({
-        message: 'Notion API 요청에 실패했습니다.',
-        statusCode: response.status,
+      throw this.toHttpException(response.status, errorBody);
+    }
+
+    throw new ServiceUnavailableException('Notion API request exceeded retry limit.');
+  }
+
+  private toHttpException(status: number, errorBody: string): Error {
+    if (status === 400 || status === 404) {
+      return new BadRequestException({
+        message: 'Notion API request is invalid.',
+        statusCode: status,
         body: errorBody,
       });
     }
 
-    throw new BadRequestException('Notion API 요청에 실패했습니다.');
+    if (status === 401 || status === 403) {
+      return new BadRequestException({
+        message: 'Notion connection is invalid or expired.',
+        statusCode: status,
+        body: errorBody,
+      });
+    }
+
+    if (status === 429) {
+      return new ServiceUnavailableException({
+        message: 'Notion API is rate limited.',
+        statusCode: status,
+        body: errorBody,
+      });
+    }
+
+    if (status >= 500) {
+      return new BadGatewayException({
+        message: 'Notion API failed.',
+        statusCode: status,
+        body: errorBody,
+      });
+    }
+
+    return new BadGatewayException({
+      message: 'Notion API request failed.',
+      statusCode: status,
+      body: errorBody,
+    });
   }
 
   private async fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
@@ -159,6 +202,11 @@ export class NotionClientService {
     const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
       return await fetch(url, { ...options, signal: controller.signal });
+    } catch (error) {
+      if ((error as Error).name === 'AbortError') {
+        throw new GatewayTimeoutException('Notion API request timed out.');
+      }
+      throw new ServiceUnavailableException('Notion API request failed due to a network error.');
     } finally {
       clearTimeout(timeoutId);
     }

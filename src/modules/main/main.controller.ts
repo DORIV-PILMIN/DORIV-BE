@@ -1,6 +1,7 @@
 ﻿import { Controller, Get, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiExcludeEndpoint,
   ApiExtraModels,
   ApiOkResponse,
   ApiOperation,
@@ -51,6 +52,7 @@ export class MainController {
   }
 
   @Get('user')
+  @ApiExcludeEndpoint()
   @ApiOperation({ summary: '메인 사용자 정보' })
   @ApiOkResponse({ type: MainUserDto })
   @ApiUnauthorizedResponse({ description: '인증이 필요합니다.' })
@@ -59,6 +61,7 @@ export class MainController {
   }
 
   @Get('notion')
+  @ApiExcludeEndpoint()
   @ApiOperation({ summary: '메인 노션 요약' })
   @ApiOkResponse({ type: MainNotionDomainDto })
   @ApiUnauthorizedResponse({ description: '인증이 필요합니다.' })
@@ -67,6 +70,7 @@ export class MainController {
   }
 
   @Get('question')
+  @ApiExcludeEndpoint()
   @ApiOperation({ summary: '메인 질문 요약' })
   @ApiOkResponse({ type: MainQuestionDomainDto })
   @ApiUnauthorizedResponse({ description: '인증이 필요합니다.' })
@@ -75,6 +79,7 @@ export class MainController {
   }
 
   @Get('stats')
+  @ApiExcludeEndpoint()
   @ApiOperation({ summary: '메인 학습 통계' })
   @ApiOkResponse({ type: MainStatsDto })
   @ApiUnauthorizedResponse({ description: '인증이 필요합니다.' })

@@ -78,6 +78,6 @@ describe('QuestionAttemptService', () => {
 
     expect(result.result).toBe('PASS');
     expect(result.score).toBe(80);
-    expect(questionAttemptRepository.save).toHaveBeenCalledTimes(2);
+    expect(questionAttemptRepository.save).toHaveBeenCalledTimes(1);
   });
 });

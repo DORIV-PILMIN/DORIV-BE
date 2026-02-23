@@ -2,6 +2,7 @@
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiExcludeEndpoint,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -63,6 +64,7 @@ export class PushController {
   @Post('send')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @ApiExcludeEndpoint()
   @ApiOperation({ summary: '내 푸시 알림 발송' })
   @ApiBody({ type: PushSendRequestDto })
   @ApiOkResponse({ type: PushSendResponseDto })

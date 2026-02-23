@@ -8,7 +8,13 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiExcludeEndpoint,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUserId } from '../../common/decorators/current-user-id.decorator';
@@ -36,6 +42,7 @@ export class NotionOauthController {
   }
 
   @Get('callback')
+  @ApiExcludeEndpoint()
   @ApiOperation({ summary: 'Notion OAuth callback' })
   @HttpCode(200)
   @ApiOkResponse({ description: 'Completes Notion connection or redirects on success.' })

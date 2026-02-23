@@ -1,5 +1,12 @@
 ﻿import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiExcludeEndpoint,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { OauthLoginRequestDto } from './dtos/oauth-login-request.dto';
 import { OauthLoginResponseDto } from './dtos/oauth-login-response.dto';
 import { OauthRefreshRequestDto } from './dtos/oauth-refresh-request.dto';
@@ -60,6 +67,7 @@ export class OauthController {
   @Get('user')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @ApiExcludeEndpoint()
   @ApiOperation({ summary: '로그인 사용자 정보' })
   @ApiOkResponse({ type: OauthUserDto })
   getUser(@CurrentUserId() userId: string): Promise<OauthUserDto> {

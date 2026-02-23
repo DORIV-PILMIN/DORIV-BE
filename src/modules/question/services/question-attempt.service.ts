@@ -37,19 +37,15 @@ export class QuestionAttemptService {
       throw new ForbiddenException('You do not have access to this question.');
     }
 
+    const evaluation = await this.evaluationService.evaluate(question.prompt, dto.answer);
     const attempt = this.questionAttemptRepository.create({
       userId,
       questionId,
       userAnswer: dto.answer,
-      score: null,
-      aiFeedback: null,
+      score: evaluation.score,
+      aiFeedback: evaluation.feedback,
     });
     const saved = await this.questionAttemptRepository.save(attempt);
-
-    const evaluation = await this.evaluationService.evaluate(question.prompt, dto.answer);
-    saved.score = evaluation.score;
-    saved.aiFeedback = evaluation.feedback;
-    await this.questionAttemptRepository.save(saved);
 
     const result = this.toResult(saved.score);
     await this.upsertStatus(userId, questionId, result);

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadGatewayException, Injectable } from '@nestjs/common';
 import { GeminiClientService } from '../../ai/gemini-client.service';
 
 type EvaluationResult = {
@@ -16,10 +16,10 @@ export class QuestionEvaluationService {
     const parsed = this.parseEvaluation(raw);
 
     if (parsed.score < 0 || parsed.score > 100) {
-      throw new BadRequestException('Score out of allowed range.');
+      throw new BadGatewayException('AI evaluation score is out of allowed range.');
     }
     if (!parsed.feedback) {
-      throw new BadRequestException('Feedback is empty.');
+      throw new BadGatewayException('AI evaluation feedback is empty.');
     }
 
     return parsed;
@@ -59,6 +59,6 @@ export class QuestionEvaluationService {
       }
     }
 
-    throw new BadRequestException('Failed to parse AI evaluation response.');
+    throw new BadGatewayException('Failed to parse AI evaluation response.');
   }
 }
