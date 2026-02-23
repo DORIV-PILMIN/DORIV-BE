@@ -7,6 +7,7 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import type { Relation } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { NotionPage } from '../../notion/entities/notion-page.entity';
 
@@ -47,9 +48,9 @@ export class StudyPlan {
 
   @ManyToOne(() => User, (user) => user.userId, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user!: User;
+  user!: Relation<User>;
 
   @ManyToOne(() => NotionPage, (page) => page.pageId, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'page_id' })
-  page!: NotionPage;
+  page!: Relation<NotionPage>;
 }

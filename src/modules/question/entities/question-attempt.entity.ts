@@ -7,6 +7,7 @@
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import type { Relation } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { Question } from './question.entity';
 
@@ -47,12 +48,12 @@ export class QuestionAttempt {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'user_id' })
-  user!: User;
+  user!: Relation<User>;
 
   // 질문(다:1)
   @ManyToOne(() => Question, (question) => question.questionAttempts, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'question_id' })
-  question!: Question;
+  question!: Relation<Question>;
 }

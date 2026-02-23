@@ -8,6 +8,7 @@
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import type { Relation } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { PageSnapshot } from './page-snapshot.entity';
 
@@ -49,7 +50,7 @@ export class NotionPage {
   // 유저(다:1)
   @ManyToOne(() => User, (user) => user.notionPages, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user!: User;
+  user!: Relation<User>;
 
   // 페이지 스냅샷 목록(1:N)
   @OneToMany(() => PageSnapshot, (pageSnapshot) => pageSnapshot.page)

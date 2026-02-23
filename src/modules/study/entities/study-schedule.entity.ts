@@ -8,6 +8,7 @@
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import type { Relation } from 'typeorm';
 import { StudyPlan } from './study-plan.entity';
 
 @Entity({ name: 'study_schedules' })
@@ -55,5 +56,5 @@ export class StudySchedule {
   // Plan (N:1)
   @ManyToOne(() => StudyPlan, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'plan_id' })
-  plan!: StudyPlan;
+  plan!: Relation<StudyPlan>;
 }

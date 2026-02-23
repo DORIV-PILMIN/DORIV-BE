@@ -7,6 +7,7 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import type { Relation } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 
 @Entity({ name: 'oauth_users' })
@@ -44,5 +45,5 @@ export class OauthUser {
 
   @ManyToOne(() => User, (user) => user.oauthUsers, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user!: User;
+  user!: Relation<User>;
 }

@@ -9,6 +9,7 @@
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import type { Relation } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { PushSendLog } from './push-send-log.entity';
 
@@ -47,7 +48,7 @@ export class PushToken {
 
   @ManyToOne(() => User, (user) => user.pushTokens, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user!: User;
+  user!: Relation<User>;
 
   @OneToMany(() => PushSendLog, (log) => log.pushToken)
   pushSendLogs!: PushSendLog[];

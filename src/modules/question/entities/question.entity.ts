@@ -8,6 +8,7 @@
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import type { Relation } from 'typeorm';
 import { PageSnapshot } from '../../notion/entities/page-snapshot.entity';
 import { QuestionStatus } from './question-status.entity';
 import { QuestionAttempt } from './question-attempt.entity';
@@ -39,7 +40,7 @@ export class Question {
   // 페이지 스냅샷(다:1)
   @ManyToOne(() => PageSnapshot, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'snapshot_id' })
-  snapshot!: PageSnapshot;
+  snapshot!: Relation<PageSnapshot>;
 
   // 질문 상태 목록(1:N)
   @OneToMany(() => QuestionStatus, (questionStatus) => questionStatus.question)

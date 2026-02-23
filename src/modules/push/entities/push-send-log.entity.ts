@@ -7,6 +7,7 @@
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import type { Relation } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { PushToken } from './push-token.entity';
 
@@ -43,9 +44,9 @@ export class PushSendLog {
 
   @ManyToOne(() => User, (user) => user.pushSendLogs, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'user_id' })
-  user!: User | null;
+  user!: Relation<User> | null;
 
   @ManyToOne(() => PushToken, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'push_token_id' })
-  pushToken!: PushToken | null;
+  pushToken!: Relation<PushToken> | null;
 }

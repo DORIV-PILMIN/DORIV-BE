@@ -7,6 +7,7 @@
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import type { Relation } from 'typeorm';
 import { NotionPage } from './notion-page.entity';
 
 @Entity({ name: 'page_snapshots' })
@@ -37,5 +38,5 @@ export class PageSnapshot {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'page_id' })
-  page!: NotionPage;
+  page!: Relation<NotionPage>;
 }
