@@ -21,7 +21,13 @@ export class User {
   userId!: string;
 
   // 이메일(UNIQUE)
-  @Column({ name: 'email', type: 'varchar', length: 50, unique: true, nullable: true })
+  @Column({
+    name: 'email',
+    type: 'varchar',
+    length: 50,
+    unique: true,
+    nullable: true,
+  })
   email!: string | null;
 
   // 이름
@@ -41,7 +47,10 @@ export class User {
   oauthUsers!: OauthUser[];
 
   // 노션 연동 목록(1:N)
-  @OneToMany(() => NotionConnection, (notionConnection) => notionConnection.user)
+  @OneToMany(
+    () => NotionConnection,
+    (notionConnection) => notionConnection.user,
+  )
   notionConnections!: NotionConnection[];
 
   // 노션 페이지 목록(1:N)

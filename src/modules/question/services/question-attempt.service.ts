@@ -37,7 +37,10 @@ export class QuestionAttemptService {
       throw new ForbiddenException('You do not have access to this question.');
     }
 
-    const evaluation = await this.evaluationService.evaluate(question.prompt, dto.answer);
+    const evaluation = await this.evaluationService.evaluate(
+      question.prompt,
+      dto.answer,
+    );
     const attempt = this.questionAttemptRepository.create({
       userId,
       questionId,

@@ -13,7 +13,9 @@ export class NotionConnectionAccessService {
   ) {}
 
   async getUserAccessTokenOrThrow(userId: string): Promise<string> {
-    const connection = await this.notionConnectionRepository.findOne({ where: { userId } });
+    const connection = await this.notionConnectionRepository.findOne({
+      where: { userId },
+    });
     if (!connection?.accessToken) {
       throw new BadRequestException('Notion connection is required.');
     }

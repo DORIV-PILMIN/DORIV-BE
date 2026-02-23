@@ -37,8 +37,12 @@ export class NotionClientService {
   constructor(private readonly configService: ConfigService) {
     this.token = configService.get<string>('NOTION_TOKEN') ?? '';
     this.version = configService.get<string>('NOTION_VERSION') ?? '2025-09-03';
-    this.timeoutMs = Number(configService.get<string>('NOTION_TIMEOUT_MS') ?? 8000);
-    this.maxRetries = Number(configService.get<string>('NOTION_MAX_RETRIES') ?? 2);
+    this.timeoutMs = Number(
+      configService.get<string>('NOTION_TIMEOUT_MS') ?? 8000,
+    );
+    this.maxRetries = Number(
+      configService.get<string>('NOTION_MAX_RETRIES') ?? 2,
+    );
   }
 
   async searchPages(
@@ -55,8 +59,15 @@ export class NotionClientService {
     return this.request<NotionSearchResponse>(token, 'POST', '/search', body);
   }
 
-  async retrievePage(token: string | undefined, pageId: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(token, 'GET', `/pages/${pageId}`);
+  async retrievePage(
+    token: string | undefined,
+    pageId: string,
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      token,
+      'GET',
+      `/pages/${pageId}`,
+    );
   }
 
   async retrieveAllBlockChildren(
@@ -154,7 +165,9 @@ export class NotionClientService {
       throw this.toHttpException(response.status, errorBody);
     }
 
-    throw new ServiceUnavailableException('Notion API request exceeded retry limit.');
+    throw new ServiceUnavailableException(
+      'Notion API request exceeded retry limit.',
+    );
   }
 
   private toHttpException(status: number, errorBody: string): Error {
@@ -197,7 +210,10 @@ export class NotionClientService {
     });
   }
 
-  private async fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
+  private async fetchWithTimeout(
+    url: string,
+    options: RequestInit,
+  ): Promise<Response> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
@@ -206,7 +222,9 @@ export class NotionClientService {
       if ((error as Error).name === 'AbortError') {
         throw new GatewayTimeoutException('Notion API request timed out.');
       }
-      throw new ServiceUnavailableException('Notion API request failed due to a network error.');
+      throw new ServiceUnavailableException(
+        'Notion API request failed due to a network error.',
+      );
     } finally {
       clearTimeout(timeoutId);
     }

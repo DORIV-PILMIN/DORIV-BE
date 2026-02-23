@@ -43,12 +43,16 @@ export class QuestionAttempt {
   createdAt!: Date;
 
   // 유저(다:1)
-  @ManyToOne(() => User, (user) => user.questionAttempts, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.questionAttempts, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'user_id' })
   user!: User;
 
   // 질문(다:1)
-  @ManyToOne(() => Question, (question) => question.questionAttempts, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Question, (question) => question.questionAttempts, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'question_id' })
   question!: Question;
 }

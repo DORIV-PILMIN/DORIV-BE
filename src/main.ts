@@ -32,7 +32,9 @@ async function bootstrap() {
         .map((origin) => origin.trim())
         .filter(Boolean)
     : [];
-  const corsOrigin = Array.from(new Set([...defaultCorsOrigins, ...envCorsOrigins]));
+  const corsOrigin = Array.from(
+    new Set([...defaultCorsOrigins, ...envCorsOrigins]),
+  );
 
   app.enableCors({
     origin: corsOrigin,
@@ -41,4 +43,4 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3000);
 }
-bootstrap();
+void bootstrap();

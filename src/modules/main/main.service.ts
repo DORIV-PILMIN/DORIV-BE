@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { MainNotionDomainDto } from './dtos/main-notion-domain.dto';
-import { MainPageResponseDto } from './dtos/main-page-response.dto';
 import { MainQuestionDomainDto } from './dtos/main-question-domain.dto';
 import { MainStatsDto } from './dtos/main-stats.dto';
 import { MainUserDto } from './dtos/main-user.dto';
@@ -17,22 +16,6 @@ export class MainService {
     private readonly mainQuestionSummaryService: MainQuestionSummaryService,
     private readonly mainStatsService: MainStatsService,
   ) {}
-
-  async getMainPage(userId: string): Promise<MainPageResponseDto> {
-    const [user, notion, question, stats] = await Promise.all([
-      this.getUser(userId),
-      this.getNotion(userId),
-      this.getQuestion(userId),
-      this.getStats(userId),
-    ]);
-
-    return {
-      user,
-      notion,
-      question,
-      stats,
-    };
-  }
 
   async getUser(userId: string): Promise<MainUserDto> {
     return this.mainUserService.getUser(userId);

@@ -5,9 +5,14 @@ import { StudyPlanCreationService } from './study-plan-creation.service';
 
 @Injectable()
 export class StudyPlanService {
-  constructor(private readonly studyPlanCreationService: StudyPlanCreationService) {}
+  constructor(
+    private readonly studyPlanCreationService: StudyPlanCreationService,
+  ) {}
 
-  async createPlan(userId: string, dto: StudyPlanRequestDto): Promise<StudyPlanResponseDto> {
+  async createPlan(
+    userId: string,
+    dto: StudyPlanRequestDto,
+  ): Promise<StudyPlanResponseDto> {
     return this.studyPlanCreationService.createPlan(userId, dto);
   }
 }

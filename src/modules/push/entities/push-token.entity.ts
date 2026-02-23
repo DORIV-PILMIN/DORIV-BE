@@ -28,7 +28,12 @@ export class PushToken {
   @Column({ name: 'platform', type: 'varchar', length: 20 })
   platform!: string;
 
-  @Column({ name: 'device_type', type: 'varchar', length: 30, default: 'UNKNOWN' })
+  @Column({
+    name: 'device_type',
+    type: 'varchar',
+    length: 30,
+    default: 'UNKNOWN',
+  })
   deviceType!: string;
 
   @Column({ name: 'user_agent', type: 'text', nullable: true })

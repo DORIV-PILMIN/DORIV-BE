@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -32,8 +36,10 @@ export class NotionOauthService {
     private readonly notionTokenCryptoService: NotionTokenCryptoService,
   ) {
     this.clientId = configService.get<string>('NOTION_OAUTH_CLIENT_ID') ?? '';
-    this.clientSecret = configService.get<string>('NOTION_OAUTH_CLIENT_SECRET') ?? '';
-    this.redirectUri = configService.get<string>('NOTION_OAUTH_REDIRECT_URI') ?? '';
+    this.clientSecret =
+      configService.get<string>('NOTION_OAUTH_CLIENT_SECRET') ?? '';
+    this.redirectUri =
+      configService.get<string>('NOTION_OAUTH_REDIRECT_URI') ?? '';
     this.version = configService.get<string>('NOTION_VERSION') ?? '2025-09-03';
     this.stateSecret =
       configService.get<string>('NOTION_OAUTH_STATE_SECRET') ??
@@ -43,7 +49,9 @@ export class NotionOauthService {
 
   buildAuthorizeUrl(userId: string): string {
     if (!this.clientId || !this.redirectUri) {
-      throw new InternalServerErrorException('Notion OAuth configuration is required.');
+      throw new InternalServerErrorException(
+        'Notion OAuth configuration is required.',
+      );
     }
 
     const state = this.createState(userId);
@@ -66,7 +74,9 @@ export class NotionOauthService {
 
   private createState(userId: string): string {
     if (!this.stateSecret) {
-      throw new InternalServerErrorException('NOTION_OAUTH_STATE_SECRET is required.');
+      throw new InternalServerErrorException(
+        'NOTION_OAUTH_STATE_SECRET is required.',
+      );
     }
 
     const payload = {
@@ -75,8 +85,12 @@ export class NotionOauthService {
       nonce: randomBytes(8).toString('hex'),
     };
 
-    const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
-    const signature = createHmac('sha256', this.stateSecret).update(encoded).digest('hex');
+    const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString(
+      'base64url',
+    );
+    const signature = createHmac('sha256', this.stateSecret)
+      .update(encoded)
+      .digest('hex');
     return `${encoded}.${signature}`;
   }
 
@@ -87,12 +101,16 @@ export class NotionOauthService {
     }
 
     const [encoded, signature] = parts;
-    const expected = createHmac('sha256', this.stateSecret).update(encoded).digest('hex');
+    const expected = createHmac('sha256', this.stateSecret)
+      .update(encoded)
+      .digest('hex');
     if (expected !== signature) {
       throw new BadRequestException('Invalid state value.');
     }
 
-    const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as {
+    const payload = JSON.parse(
+      Buffer.from(encoded, 'base64url').toString('utf8'),
+    ) as {
       userId: string;
       ts: number;
     };
@@ -108,12 +126,19 @@ export class NotionOauthService {
     return payload.userId;
   }
 
-  private async exchangeCodeForToken(code: string): Promise<NotionTokenResponse> {
+  private async exchangeCodeForToken(
+    code: string,
+  ): Promise<NotionTokenResponse> {
     if (!this.clientId || !this.clientSecret || !this.redirectUri) {
-      throw new InternalServerErrorException('Notion OAuth configuration is required.');
+      throw new InternalServerErrorException(
+        'Notion OAuth configuration is required.',
+      );
     }
 
-    const basic = Buffer.from(`${this.clientId}:${this.clientSecret}`, 'utf8').toString('base64');
+    const basic = Buffer.from(
+      `${this.clientId}:${this.clientSecret}`,
+      'utf8',
+    ).toString('base64');
     const response = await fetch('https://api.notion.com/v1/oauth/token', {
       method: 'POST',
       headers: {
@@ -144,7 +169,9 @@ export class NotionOauthService {
     userId: string,
     token: NotionTokenResponse,
   ): Promise<NotionConnection> {
-    const encryptedToken = this.notionTokenCryptoService.encrypt(token.access_token);
+    const encryptedToken = this.notionTokenCryptoService.encrypt(
+      token.access_token,
+    );
 
     await this.notionConnectionRepository.upsert(
       {
@@ -155,9 +182,13 @@ export class NotionOauthService {
       ['userId'],
     );
 
-    const saved = await this.notionConnectionRepository.findOne({ where: { userId } });
+    const saved = await this.notionConnectionRepository.findOne({
+      where: { userId },
+    });
     if (!saved) {
-      throw new InternalServerErrorException('Failed to persist Notion connection.');
+      throw new InternalServerErrorException(
+        'Failed to persist Notion connection.',
+      );
     }
 
     return saved;

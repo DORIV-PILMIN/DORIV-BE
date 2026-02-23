@@ -25,7 +25,9 @@ export class StudyScheduleProcessingService {
 
   async processSchedule(schedule: StudySchedule): Promise<void> {
     try {
-      const plan = await this.planRepository.findOne({ where: { planId: schedule.planId } });
+      const plan = await this.planRepository.findOne({
+        where: { planId: schedule.planId },
+      });
       if (!plan) {
         throw new Error('plan not found');
       }
@@ -42,10 +44,13 @@ export class StudyScheduleProcessingService {
         where: { scheduleId: schedule.scheduleId },
       });
       const needsRegenerate =
-        existingCount === 0 || schedule.snapshotId !== latestSnapshot.snapshotId;
+        existingCount === 0 ||
+        schedule.snapshotId !== latestSnapshot.snapshotId;
 
       if (needsRegenerate) {
-        await this.questionRepository.delete({ scheduleId: schedule.scheduleId });
+        await this.questionRepository.delete({
+          scheduleId: schedule.scheduleId,
+        });
         await this.questionGenerationService.generateFromSnapshot(
           latestSnapshot.snapshotId,
           plan.questionsPerDay,

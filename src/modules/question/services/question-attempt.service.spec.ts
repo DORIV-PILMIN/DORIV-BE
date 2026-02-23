@@ -30,7 +30,9 @@ describe('QuestionAttemptService', () => {
   } as unknown as Repository<QuestionStatus>;
 
   const evaluationService = {
-    evaluate: jest.fn().mockResolvedValue({ score: 80, feedback: 'Good answer.' }),
+    evaluate: jest
+      .fn()
+      .mockResolvedValue({ score: 80, feedback: 'Good answer.' }),
   } as unknown as QuestionEvaluationService;
 
   beforeEach(() => {
@@ -63,7 +65,9 @@ describe('QuestionAttemptService', () => {
       innerJoin: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      getOne: jest.fn().mockResolvedValue({ questionId: 'question-1', prompt: 'prompt' }),
+      getOne: jest
+        .fn()
+        .mockResolvedValue({ questionId: 'question-1', prompt: 'prompt' }),
     };
     (questionRepository.createQueryBuilder as jest.Mock).mockReturnValue(qb);
 
@@ -74,7 +78,9 @@ describe('QuestionAttemptService', () => {
       evaluationService,
     );
 
-    const result = await service.submitAttempt('user-1', 'question-1', { answer: 'answer' });
+    const result = await service.submitAttempt('user-1', 'question-1', {
+      answer: 'answer',
+    });
 
     expect(result.result).toBe('PASS');
     expect(result.score).toBe(80);

@@ -46,6 +46,9 @@ export class Question {
   questionStatuses!: QuestionStatus[];
 
   // 풀이 로그 목록(1:N)
-  @OneToMany(() => QuestionAttempt, (questionAttempt) => questionAttempt.question)
+  @OneToMany(
+    () => QuestionAttempt,
+    (questionAttempt) => questionAttempt.question,
+  )
   questionAttempts!: QuestionAttempt[];
 }

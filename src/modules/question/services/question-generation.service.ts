@@ -1,4 +1,8 @@
-﻿import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+﻿import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PageSnapshot } from '../../notion/entities/page-snapshot.entity';
@@ -41,7 +45,11 @@ export class QuestionGenerationService {
     if (!page || page.userId !== params.userId) {
       throw new ForbiddenException('해당 사용자의 질문 생성 권한이 없습니다.');
     }
-    return this.generateWithSnapshot(snapshot, params.questionsCount, params.scheduleId);
+    return this.generateWithSnapshot(
+      snapshot,
+      params.questionsCount,
+      params.scheduleId,
+    );
   }
 
   private async generateWithSnapshot(
@@ -81,7 +89,9 @@ export class QuestionGenerationService {
     }
 
     if (questions.length < questionsCount) {
-      throw new BadRequestException('생성된 질문 수가 요청된 개수보다 적습니다.');
+      throw new BadRequestException(
+        '생성된 질문 수가 요청된 개수보다 적습니다.',
+      );
     }
 
     if (questions.length > questionsCount) {
@@ -99,7 +109,9 @@ export class QuestionGenerationService {
   }
 
   private async getSnapshotOrThrow(snapshotId: string): Promise<PageSnapshot> {
-    const snapshot = await this.pageSnapshotRepository.findOne({ where: { snapshotId } });
+    const snapshot = await this.pageSnapshotRepository.findOne({
+      where: { snapshotId },
+    });
     if (!snapshot) {
       throw new BadRequestException('스냅샷을 찾을 수 없습니다.');
     }
@@ -133,7 +145,10 @@ export class QuestionGenerationService {
   private parseQuestions(raw: string): string[] {
     let trimmed = raw.trim();
     if (trimmed.startsWith('```')) {
-      trimmed = trimmed.replace(/^```[a-zA-Z]*\s*/, '').replace(/```$/, '').trim();
+      trimmed = trimmed
+        .replace(/^```[a-zA-Z]*\s*/, '')
+        .replace(/```$/, '')
+        .trim();
     }
 
     // JSON 배열 구간만 추출해서 파싱 시도
@@ -156,8 +171,11 @@ export class QuestionGenerationService {
       .split('\n')
       .map((line) => line.replace(/^\s*[\d-]+\s*[.)]?\s*/, '').trim())
       .filter(Boolean)
-      .filter((line) => line !== '```json' && line !== '```' && line !== '[' && line !== ']')
-      .map((line) => line.replace(/^"+|"+$/g, '').replace(/\\\"/g, '"'));
+      .filter(
+        (line) =>
+          line !== '```json' && line !== '```' && line !== '[' && line !== ']',
+      )
+      .map((line) => line.replace(/^"+|"+$/g, '').replace(/\\"/g, '"'));
   }
 
   private extractPlainText(content: Record<string, unknown>): string {

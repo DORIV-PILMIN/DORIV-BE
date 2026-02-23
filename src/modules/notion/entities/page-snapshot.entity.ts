@@ -33,7 +33,9 @@ export class PageSnapshot {
   createdAt!: Date;
 
   // 노션 페이지(다:1)
-  @ManyToOne(() => NotionPage, (page) => page.pageSnapshots, { onDelete: 'CASCADE' })
+  @ManyToOne(() => NotionPage, (page) => page.pageSnapshots, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'page_id' })
   page!: NotionPage;
 }

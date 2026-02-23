@@ -16,10 +16,15 @@ export class FcmMessageService {
     private readonly fcmAuthService: FcmAuthService,
     private readonly configService: ConfigService,
   ) {
-    this.requestTimeoutMs = Number(configService.get<string>('FCM_TIMEOUT_MS') ?? 10000);
+    this.requestTimeoutMs = Number(
+      configService.get<string>('FCM_TIMEOUT_MS') ?? 10000,
+    );
   }
 
-  async sendToToken(token: string, dto: PushSendRequestDto): Promise<PushSendResult> {
+  async sendToToken(
+    token: string,
+    dto: PushSendRequestDto,
+  ): Promise<PushSendResult> {
     const accessToken = await this.fcmAuthService.getAccessToken();
     const projectId = this.fcmAuthService.getProjectId();
     const url = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
@@ -54,12 +59,17 @@ export class FcmMessageService {
       const body = (await response.json()) as {
         error?: { details?: Array<{ errorCode?: string }> };
       };
-      errorCode = body?.error?.details?.find((d) => d.errorCode)?.errorCode ?? null;
+      errorCode =
+        body?.error?.details?.find((d) => d.errorCode)?.errorCode ?? null;
     } catch {
       // ignore
     }
 
-    if (response.status === 404 || errorCode === 'UNREGISTERED' || errorCode === 'INVALID_ARGUMENT') {
+    if (
+      response.status === 404 ||
+      errorCode === 'UNREGISTERED' ||
+      errorCode === 'INVALID_ARGUMENT'
+    ) {
       return { status: 'invalid', errorCode };
     }
 

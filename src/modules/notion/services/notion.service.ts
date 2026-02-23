@@ -20,7 +20,10 @@ export class NotionService {
     return this.notionPageSearchService.searchPagesOnly(userId, dto);
   }
 
-  async addPage(userId: string, dto: NotionAddPageRequestDto): Promise<NotionPageResponseDto> {
+  async addPage(
+    userId: string,
+    dto: NotionAddPageRequestDto,
+  ): Promise<NotionPageResponseDto> {
     return this.notionPageConnectService.addPage(userId, dto);
   }
 }

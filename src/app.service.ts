@@ -26,7 +26,9 @@ export class AppService implements OnModuleInit {
         await this.dataSource.query(query);
       } catch (error) {
         this.logger.warn(`Failed to apply startup index query: ${query}`);
-        this.logger.warn(error instanceof Error ? error.message : 'unknown error');
+        this.logger.warn(
+          error instanceof Error ? error.message : 'unknown error',
+        );
       }
     }
   }

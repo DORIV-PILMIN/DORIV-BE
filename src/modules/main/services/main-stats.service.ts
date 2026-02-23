@@ -30,7 +30,9 @@ export class MainStatsService {
 
     return {
       flashcardCount: flashcardCountRaw ? Number(flashcardCountRaw.count) : 0,
-      retentionRate: retentionRateRaw?.avg ? Number(retentionRateRaw.avg) : null,
+      retentionRate: retentionRateRaw?.avg
+        ? Number(retentionRateRaw.avg)
+        : null,
     };
   }
 }

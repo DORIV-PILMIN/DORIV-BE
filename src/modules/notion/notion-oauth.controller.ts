@@ -45,7 +45,9 @@ export class NotionOauthController {
   @ApiExcludeEndpoint()
   @ApiOperation({ summary: 'Notion OAuth callback' })
   @HttpCode(200)
-  @ApiOkResponse({ description: 'Completes Notion connection or redirects on success.' })
+  @ApiOkResponse({
+    description: 'Completes Notion connection or redirects on success.',
+  })
   @Redirect()
   async callback(
     @Query('code') code: string | undefined,
@@ -57,7 +59,9 @@ export class NotionOauthController {
 
     await this.notionOauthService.handleCallback(code, state);
 
-    const redirectUrl = this.configService.get<string>('NOTION_OAUTH_SUCCESS_REDIRECT_URL');
+    const redirectUrl = this.configService.get<string>(
+      'NOTION_OAUTH_SUCCESS_REDIRECT_URL',
+    );
     if (redirectUrl) {
       return { url: redirectUrl };
     }

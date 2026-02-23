@@ -18,7 +18,10 @@ export class NotionPageSearchService {
     userId: string,
     dto: NotionSearchRequestDto,
   ): Promise<NotionSearchPagesResponseDto> {
-    const token = await this.notionConnectionAccessService.getUserAccessTokenOrThrow(userId);
+    const token =
+      await this.notionConnectionAccessService.getUserAccessTokenOrThrow(
+        userId,
+      );
     const response = await this.notionClient.searchPages(token, {
       query: dto.query,
       pageSize: dto.pageSize,

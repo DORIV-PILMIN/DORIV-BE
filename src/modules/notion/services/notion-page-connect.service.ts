@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotionPage } from '../entities/notion-page.entity';
@@ -24,20 +28,30 @@ export class NotionPageConnectService {
     private readonly parsingService: NotionParsingService,
   ) {}
 
-  async addPage(userId: string, dto: NotionAddPageRequestDto): Promise<NotionPageResponseDto> {
-    const token = await this.notionConnectionAccessService.getUserAccessTokenOrThrow(userId);
+  async addPage(
+    userId: string,
+    dto: NotionAddPageRequestDto,
+  ): Promise<NotionPageResponseDto> {
+    const token =
+      await this.notionConnectionAccessService.getUserAccessTokenOrThrow(
+        userId,
+      );
     const notionPageId = this.resolveNotionPageId(dto);
     const existing = await this.notionPageRepository.findOne({
       where: { notionPageId },
     });
     if (existing) {
       if (existing.userId !== userId) {
-        throw new ConflictException('This page is already linked to another user.');
+        throw new ConflictException(
+          'This page is already linked to another user.',
+        );
       }
       return { page: this.toNotionPageDto(existing) };
     }
 
-    const currentCount = await this.notionPageRepository.count({ where: { userId } });
+    const currentCount = await this.notionPageRepository.count({
+      where: { userId },
+    });
     if (currentCount >= NotionPageConnectService.MAX_PAGES_PER_USER) {
       throw new BadRequestException('You can connect up to 5 Notion pages.');
     }
@@ -56,13 +70,20 @@ export class NotionPageConnectService {
     });
     const savedPage = await this.notionPageRepository.save(notionPage);
 
-    const blocks = await this.notionClient.retrieveAllBlockChildren(token, notionPageId, 2);
+    const blocks = await this.notionClient.retrieveAllBlockChildren(
+      token,
+      notionPageId,
+      2,
+    );
     const plainText = this.parsingService.extractPlainTextFromBlocks(blocks);
     const snapshotContent = {
       blocks,
       plainText,
     };
-    const contentHash = this.parsingService.createContentHash(notionPageId, snapshotContent);
+    const contentHash = this.parsingService.createContentHash(
+      notionPageId,
+      snapshotContent,
+    );
 
     const existingSnapshot = await this.pageSnapshotRepository.findOne({
       where: { contentHash },
@@ -96,7 +117,8 @@ export class NotionPageConnectService {
 
   private extractPageIdFromUrl(url: string): string | null {
     const trimmed = url.trim();
-    const uuidPattern = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/;
+    const uuidPattern =
+      /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/;
     const compactPattern = /[0-9a-fA-F]{32}/;
 
     const uuidMatch = trimmed.match(uuidPattern);

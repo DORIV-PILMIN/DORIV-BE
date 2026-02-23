@@ -1,5 +1,19 @@
-﻿import { Body, Controller, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags, ApiUnauthorizedResponse } from '@nestjs/swagger';
+﻿import {
+  Body,
+  Controller,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUserId } from '../../common/decorators/current-user-id.decorator';
 import { QuestionAttemptRequestDto } from './dtos/question-attempt-request.dto';
@@ -22,18 +36,22 @@ export class QuestionController {
   @Post('generate')
   @ApiOperation({ summary: '질문 생성' })
   @ApiBody({ type: QuestionGenerateRequestDto })
-  @ApiOkResponse({ type: QuestionGenerateResponseDto, description: '생성한 질문 목록' })
+  @ApiOkResponse({
+    type: QuestionGenerateResponseDto,
+    description: '생성한 질문 목록',
+  })
   @ApiUnauthorizedResponse({ description: '인증이 필요합니다.' })
   async generate(
     @CurrentUserId() userId: string,
     @Body() dto: QuestionGenerateRequestDto,
   ): Promise<QuestionGenerateResponseDto> {
     const count = dto.questionsCount ?? 5;
-    const questions = await this.questionGenerationService.generateFromSnapshotForUser({
-      snapshotId: dto.snapshotId,
-      questionsCount: count,
-      userId,
-    });
+    const questions =
+      await this.questionGenerationService.generateFromSnapshotForUser({
+        snapshotId: dto.snapshotId,
+        questionsCount: count,
+        userId,
+      });
     return {
       questions: questions.map((q) => ({
         questionId: q.questionId,
@@ -52,7 +70,11 @@ export class QuestionController {
     @Param('questionId', new ParseUUIDPipe()) questionId: string,
     @Body() dto: QuestionAttemptRequestDto,
   ): Promise<QuestionAttemptResponseDto> {
-    const attempt = await this.questionAttemptService.submitAttempt(userId, questionId, dto);
+    const attempt = await this.questionAttemptService.submitAttempt(
+      userId,
+      questionId,
+      dto,
+    );
     return { attempt };
   }
 }

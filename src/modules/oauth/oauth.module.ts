@@ -22,7 +22,12 @@ import { RefreshToken } from './entities/refresh-token.entity';
     }),
   ],
   controllers: [OauthController],
-  providers: [OauthService, OauthProviderService, OauthUserService, OauthTokenService],
+  providers: [
+    OauthService,
+    OauthProviderService,
+    OauthUserService,
+    OauthTokenService,
+  ],
   exports: [OauthService],
 })
 export class OauthModule {}

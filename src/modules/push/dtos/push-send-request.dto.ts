@@ -1,5 +1,5 @@
-﻿import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
+﻿import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class PushSendRequestDto {
   @ApiPropertyOptional({ example: 'Doriv 알림' })

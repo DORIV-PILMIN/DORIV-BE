@@ -16,7 +16,9 @@ export class QuestionEvaluationService {
     const parsed = this.parseEvaluation(raw);
 
     if (parsed.score < 0 || parsed.score > 100) {
-      throw new BadGatewayException('AI evaluation score is out of allowed range.');
+      throw new BadGatewayException(
+        'AI evaluation score is out of allowed range.',
+      );
     }
     if (!parsed.feedback) {
       throw new BadGatewayException('AI evaluation feedback is empty.');
@@ -42,7 +44,10 @@ export class QuestionEvaluationService {
   private parseEvaluation(raw: string): EvaluationResult {
     let trimmed = raw.trim();
     if (trimmed.startsWith('```')) {
-      trimmed = trimmed.replace(/^```[a-zA-Z]*\s*/, '').replace(/```$/, '').trim();
+      trimmed = trimmed
+        .replace(/^```[a-zA-Z]*\s*/, '')
+        .replace(/```$/, '')
+        .trim();
     }
 
     const startIdx = trimmed.indexOf('{');
@@ -51,7 +56,10 @@ export class QuestionEvaluationService {
       const slice = trimmed.slice(startIdx, endIdx + 1);
       try {
         const parsed = JSON.parse(slice) as EvaluationResult;
-        if (typeof parsed.score === 'number' && typeof parsed.feedback === 'string') {
+        if (
+          typeof parsed.score === 'number' &&
+          typeof parsed.feedback === 'string'
+        ) {
           return { score: parsed.score, feedback: parsed.feedback.trim() };
         }
       } catch {

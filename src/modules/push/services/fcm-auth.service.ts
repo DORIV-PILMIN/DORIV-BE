@@ -20,7 +20,9 @@ export class FcmAuthService {
   private readonly requestTimeoutMs: number;
 
   constructor(private readonly configService: ConfigService) {
-    this.requestTimeoutMs = Number(configService.get<string>('FCM_TIMEOUT_MS') ?? 10000);
+    this.requestTimeoutMs = Number(
+      configService.get<string>('FCM_TIMEOUT_MS') ?? 10000,
+    );
   }
 
   getVapidPublicKey(): string {
@@ -73,7 +75,10 @@ export class FcmAuthService {
       throw new InternalServerErrorException(`FCM 토큰 발급 실패: ${text}`);
     }
 
-    const data = (await response.json()) as { access_token: string; expires_in: number };
+    const data = (await response.json()) as {
+      access_token: string;
+      expires_in: number;
+    };
     this.accessTokenCache = {
       token: data.access_token,
       expiresAt: Date.now() + data.expires_in * 1000,
@@ -82,7 +87,9 @@ export class FcmAuthService {
   }
 
   private getServiceAccount(): ServiceAccount {
-    const raw = this.configService.getOrThrow<string>('FCM_SERVICE_ACCOUNT_JSON');
+    const raw = this.configService.getOrThrow<string>(
+      'FCM_SERVICE_ACCOUNT_JSON',
+    );
     try {
       const parsed = JSON.parse(raw) as ServiceAccount;
       if (!parsed.client_email || !parsed.private_key || !parsed.project_id) {
@@ -90,7 +97,9 @@ export class FcmAuthService {
       }
       return parsed;
     } catch {
-      throw new InternalServerErrorException('FCM_SERVICE_ACCOUNT_JSON 형식이 올바르지 않습니다.');
+      throw new InternalServerErrorException(
+        'FCM_SERVICE_ACCOUNT_JSON 형식이 올바르지 않습니다.',
+      );
     }
   }
 
@@ -114,7 +123,8 @@ export class FcmAuthService {
   }
 
   private base64UrlEncode(input: string | Buffer): string {
-    const buffer = typeof input === 'string' ? Buffer.from(input, 'utf8') : input;
+    const buffer =
+      typeof input === 'string' ? Buffer.from(input, 'utf8') : input;
     return buffer
       .toString('base64')
       .replace(/=/g, '')

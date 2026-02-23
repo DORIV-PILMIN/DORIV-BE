@@ -30,6 +30,8 @@ describe('NotionTokenCryptoService', () => {
 
   it('throws for malformed encrypted token format', () => {
     const service = new NotionTokenCryptoService(configService);
-    expect(() => service.decrypt('enc:v1:invalid')).toThrow(InternalServerErrorException);
+    expect(() => service.decrypt('enc:v1:invalid')).toThrow(
+      InternalServerErrorException,
+    );
   });
 });

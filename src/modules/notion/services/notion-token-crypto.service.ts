@@ -1,6 +1,11 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+} from 'crypto';
 
 @Injectable()
 export class NotionTokenCryptoService {
@@ -13,7 +18,9 @@ export class NotionTokenCryptoService {
       '';
 
     if (!rawSecret) {
-      throw new InternalServerErrorException('Token encryption key is not configured.');
+      throw new InternalServerErrorException(
+        'Token encryption key is not configured.',
+      );
     }
 
     this.key = createHash('sha256').update(rawSecret).digest();
@@ -26,7 +33,10 @@ export class NotionTokenCryptoService {
 
     const iv = randomBytes(12);
     const cipher = createCipheriv('aes-256-gcm', this.key, iv);
-    const encrypted = Buffer.concat([cipher.update(plainToken, 'utf8'), cipher.final()]);
+    const encrypted = Buffer.concat([
+      cipher.update(plainToken, 'utf8'),
+      cipher.final(),
+    ]);
     const authTag = cipher.getAuthTag();
 
     return [
@@ -50,7 +60,9 @@ export class NotionTokenCryptoService {
 
     const parts = storedToken.split(':');
     if (parts.length !== 5) {
-      throw new InternalServerErrorException('Stored Notion token format is invalid.');
+      throw new InternalServerErrorException(
+        'Stored Notion token format is invalid.',
+      );
     }
 
     const [, , ivPart, tagPart, cipherPart] = parts;
@@ -63,10 +75,15 @@ export class NotionTokenCryptoService {
       const decipher = createDecipheriv('aes-256-gcm', this.key, iv);
       decipher.setAuthTag(authTag);
 
-      const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+      const decrypted = Buffer.concat([
+        decipher.update(encrypted),
+        decipher.final(),
+      ]);
       return decrypted.toString('utf8');
     } catch {
-      throw new InternalServerErrorException('Failed to decrypt stored Notion token.');
+      throw new InternalServerErrorException(
+        'Failed to decrypt stored Notion token.',
+      );
     }
   }
 }

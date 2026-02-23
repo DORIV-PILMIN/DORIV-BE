@@ -15,7 +15,13 @@ import { QuestionEvaluationService } from './services/question-evaluation.servic
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([PageSnapshot, NotionPage, Question, QuestionAttempt, QuestionStatus]),
+    TypeOrmModule.forFeature([
+      PageSnapshot,
+      NotionPage,
+      Question,
+      QuestionAttempt,
+      QuestionStatus,
+    ]),
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({

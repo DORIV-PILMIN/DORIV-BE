@@ -33,7 +33,9 @@ export class NotionConnection {
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
   updatedAt!: Date;
 
-  @ManyToOne(() => User, (user) => user.notionConnections, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.notionConnections, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'user_id' })
   user!: User;
 }

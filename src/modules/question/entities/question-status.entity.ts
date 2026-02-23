@@ -11,7 +11,9 @@ import { User } from '../../user/entities/user.entity';
 import { Question } from './question.entity';
 
 @Entity({ name: 'question_status' })
-@Index('ux_question_status_user_question', ['userId', 'questionId'], { unique: true })
+@Index('ux_question_status_user_question', ['userId', 'questionId'], {
+  unique: true,
+})
 export class QuestionStatus {
   // 질문 상태 ID(PK)
   @PrimaryGeneratedColumn('uuid', { name: 'question_status_id' })
@@ -36,12 +38,16 @@ export class QuestionStatus {
   createdAt!: Date;
 
   // 유저(다:1)
-  @ManyToOne(() => User, (user) => user.questionStatuses, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.questionStatuses, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'user_id' })
   user!: User;
 
   // 질문(다:1)
-  @ManyToOne(() => Question, (question) => question.questionStatuses, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Question, (question) => question.questionStatuses, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'question_id' })
   question!: Question;
 }

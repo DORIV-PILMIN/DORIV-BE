@@ -25,7 +25,9 @@ export class PushTokenService {
     const platform = dto.platform?.trim() || 'WEB';
     const deviceType = dto.deviceType?.trim() || 'UNKNOWN';
 
-    const existing = await this.pushTokenRepository.findOne({ where: { token } });
+    const existing = await this.pushTokenRepository.findOne({
+      where: { token },
+    });
     if (existing) {
       existing.userId = userId;
       existing.platform = platform;

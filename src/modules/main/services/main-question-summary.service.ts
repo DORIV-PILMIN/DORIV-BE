@@ -21,7 +21,12 @@ export class MainQuestionSummaryService {
     const waitingQuestionEntity = await this.questionRepository
       .createQueryBuilder('q')
       .innerJoin('page_snapshots', 'ps', 'ps.snapshot_id = q.snapshot_id')
-      .innerJoin('notion_pages', 'np', 'np.page_id = ps.page_id AND np.user_id = :userId', { userId })
+      .innerJoin(
+        'notion_pages',
+        'np',
+        'np.page_id = ps.page_id AND np.user_id = :userId',
+        { userId },
+      )
       .leftJoin(
         'question_attempts',
         'qa',
@@ -46,26 +51,28 @@ export class MainQuestionSummaryService {
       relations: ['question'],
     });
 
-    const recentSessions: MainRecentSessionDto[] = recentAttempts.map((attempt) => {
-      const score = attempt.score;
-      let result: MainRecentSessionDto['result'] = 'FAIL';
-      if (score !== null) {
-        if (score >= 70) {
-          result = 'PASS';
-        } else if (score >= 40) {
-          result = 'WEAK';
+    const recentSessions: MainRecentSessionDto[] = recentAttempts.map(
+      (attempt) => {
+        const score = attempt.score;
+        let result: MainRecentSessionDto['result'] = 'FAIL';
+        if (score !== null) {
+          if (score >= 70) {
+            result = 'PASS';
+          } else if (score >= 40) {
+            result = 'WEAK';
+          }
         }
-      }
 
-      return {
-        attemptId: attempt.questionAttemptId,
-        questionId: attempt.questionId,
-        title: attempt.question?.prompt ?? 'Untitled',
-        result,
-        score,
-        createdAt: attempt.createdAt,
-      };
-    });
+        return {
+          attemptId: attempt.questionAttemptId,
+          questionId: attempt.questionId,
+          title: attempt.question?.prompt ?? 'Untitled',
+          result,
+          score,
+          createdAt: attempt.createdAt,
+        };
+      },
+    );
 
     return {
       waitingQuestion,

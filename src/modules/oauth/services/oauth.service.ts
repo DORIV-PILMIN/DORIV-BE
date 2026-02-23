@@ -32,8 +32,12 @@ export class OauthService {
     );
 
     const result = await this.userService.upsertUser({ provider, profile });
-    const accessToken = await this.tokenService.createAccessToken(result.user.userId);
-    const refreshToken = await this.tokenService.createRefreshToken(result.user.userId);
+    const accessToken = await this.tokenService.createAccessToken(
+      result.user.userId,
+    );
+    const refreshToken = await this.tokenService.createRefreshToken(
+      result.user.userId,
+    );
 
     return this.tokenService.buildTokenResponse({
       accessToken,
@@ -49,7 +53,9 @@ export class OauthService {
   }
 
   async refresh(dto: OauthRefreshRequestDto): Promise<OauthLoginResponseDto> {
-    const payload = await this.tokenService.verifyRefreshToken(dto.refreshToken);
+    const payload = await this.tokenService.verifyRefreshToken(
+      dto.refreshToken,
+    );
 
     if (payload.typ !== 'refresh') {
       throw new UnauthorizedException('유효하지 않은 리프레시 토큰입니다.');
@@ -57,48 +63,57 @@ export class OauthService {
 
     const tokenHash = this.tokenService.hashToken(dto.refreshToken);
 
-    const tokens = await this.userRepository.manager.transaction(async (manager) => {
-      const refreshRepo = manager.getRepository(RefreshToken);
-      const userRepo = manager.getRepository(User);
+    const tokens = await this.userRepository.manager.transaction(
+      async (manager) => {
+        const refreshRepo = manager.getRepository(RefreshToken);
+        const userRepo = manager.getRepository(User);
 
-      const existing = await refreshRepo.findOne({
-        where: { tokenHash },
-        lock: { mode: 'pessimistic_write' },
-      });
+        const existing = await refreshRepo.findOne({
+          where: { tokenHash },
+          lock: { mode: 'pessimistic_write' },
+        });
 
-      if (!existing) {
-        throw new UnauthorizedException('리프레시 토큰을 찾을 수 없습니다.');
-      }
+        if (!existing) {
+          throw new UnauthorizedException('리프레시 토큰을 찾을 수 없습니다.');
+        }
 
-      if (existing.revokedAt) {
-        throw new UnauthorizedException('리프레시 토큰이 폐기되었습니다.');
-      }
+        if (existing.revokedAt) {
+          throw new UnauthorizedException('리프레시 토큰이 폐기되었습니다.');
+        }
 
-      if (existing.expiresAt.getTime() <= Date.now()) {
-        throw new UnauthorizedException('리프레시 토큰이 만료되었습니다.');
-      }
+        if (existing.expiresAt.getTime() <= Date.now()) {
+          throw new UnauthorizedException('리프레시 토큰이 만료되었습니다.');
+        }
 
-      if (payload.jti && payload.jti !== existing.refreshTokenId) {
-        throw new UnauthorizedException('리프레시 토큰이 일치하지 않습니다.');
-      }
+        if (payload.jti && payload.jti !== existing.refreshTokenId) {
+          throw new UnauthorizedException('리프레시 토큰이 일치하지 않습니다.');
+        }
 
-      if (payload.sub !== existing.userId) {
-        throw new UnauthorizedException('리프레시 토큰이 일치하지 않습니다.');
-      }
+        if (payload.sub !== existing.userId) {
+          throw new UnauthorizedException('리프레시 토큰이 일치하지 않습니다.');
+        }
 
-      const user = await userRepo.findOne({ where: { userId: existing.userId } });
-      if (!user) {
-        throw new UnauthorizedException('사용자를 찾을 수 없습니다.');
-      }
+        const user = await userRepo.findOne({
+          where: { userId: existing.userId },
+        });
+        if (!user) {
+          throw new UnauthorizedException('사용자를 찾을 수 없습니다.');
+        }
 
-      const next = await this.tokenService.createRefreshToken(user.userId, refreshRepo);
-      existing.revokedAt = new Date();
-      existing.replacedByTokenId = next.refreshTokenId;
-      await refreshRepo.save(existing);
+        const next = await this.tokenService.createRefreshToken(
+          user.userId,
+          refreshRepo,
+        );
+        existing.revokedAt = new Date();
+        existing.replacedByTokenId = next.refreshTokenId;
+        await refreshRepo.save(existing);
 
-      const accessToken = await this.tokenService.createAccessToken(user.userId);
-      return { accessToken, refreshToken: next.rawToken, user };
-    });
+        const accessToken = await this.tokenService.createAccessToken(
+          user.userId,
+        );
+        return { accessToken, refreshToken: next.rawToken, user };
+      },
+    );
 
     return this.tokenService.buildTokenResponse({
       accessToken: tokens.accessToken,

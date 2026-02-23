@@ -12,8 +12,14 @@ describe('JwtAuthGuard', () => {
     getOrThrow: jest.fn().mockReturnValue('access-secret'),
   } as unknown as ConfigService;
 
-  const makeContext = (headers: Record<string, string | undefined>, user?: { userId: string }) => {
-    const request: { headers: Record<string, string | undefined>; user?: { userId: string } } = {
+  const makeContext = (
+    headers: Record<string, string | undefined>,
+    user?: { userId: string },
+  ) => {
+    const request: {
+      headers: Record<string, string | undefined>;
+      user?: { userId: string };
+    } = {
       headers,
       user,
     };
@@ -36,7 +42,9 @@ describe('JwtAuthGuard', () => {
     const guard = new JwtAuthGuard(jwtService, configService);
     const { context } = makeContext({});
 
-    await expect(guard.canActivate(context as any)).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(guard.canActivate(context as any)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 
   it('throws when payload sub is missing', async () => {
@@ -45,12 +53,17 @@ describe('JwtAuthGuard', () => {
 
     const { context } = makeContext({ authorization: 'Bearer token' });
 
-    await expect(guard.canActivate(context as any)).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(guard.canActivate(context as any)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 
   it('injects userId when token is valid', async () => {
     const guard = new JwtAuthGuard(jwtService, configService);
-    (jwtService.verifyAsync as jest.Mock).mockResolvedValue({ sub: 'user-1', typ: 'access' });
+    (jwtService.verifyAsync as jest.Mock).mockResolvedValue({
+      sub: 'user-1',
+      typ: 'access',
+    });
 
     const { context, request } = makeContext({ authorization: 'Bearer token' });
 

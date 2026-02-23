@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { StudyScheduleClaimService } from './study-schedule-claim.service';
 import { StudyScheduleProcessingService } from './study-schedule-processing.service';
 
@@ -28,7 +33,8 @@ export class StudySchedulerService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async processDueSchedules(): Promise<void> {
-    const dueSchedules = await this.studyScheduleClaimService.claimDueSchedules();
+    const dueSchedules =
+      await this.studyScheduleClaimService.claimDueSchedules();
     for (const schedule of dueSchedules) {
       await this.studyScheduleProcessingService.processSchedule(schedule);
     }

@@ -28,7 +28,8 @@ export class OauthTokenService {
   ) {}
 
   async verifyRefreshToken(rawToken: string): Promise<RefreshTokenPayload> {
-    const refreshSecret = this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
+    const refreshSecret =
+      this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
     try {
       return await this.jwtService.verifyAsync<RefreshTokenPayload>(rawToken, {
         secret: refreshSecret,
@@ -44,8 +45,11 @@ export class OauthTokenService {
     isNewUser: boolean;
     user: OauthLoginResponseDto['user'];
   }): OauthLoginResponseDto {
-    const accessTokenMinutes = this.configService.getOrThrow<number>('ACCESS_TOKEN_MINUTES');
-    const refreshTokenDays = this.configService.getOrThrow<number>('REFRESH_TOKEN_DAYS');
+    const accessTokenMinutes = this.configService.getOrThrow<number>(
+      'ACCESS_TOKEN_MINUTES',
+    );
+    const refreshTokenDays =
+      this.configService.getOrThrow<number>('REFRESH_TOKEN_DAYS');
     const expiresIn = accessTokenMinutes * 60;
     const refreshTokenExpiresIn = refreshTokenDays * 24 * 60 * 60;
 
@@ -63,8 +67,11 @@ export class OauthTokenService {
   }
 
   async createAccessToken(userId: string): Promise<string> {
-    const accessSecret = this.configService.getOrThrow<string>('JWT_ACCESS_SECRET');
-    const accessTokenMinutes = this.configService.getOrThrow<number>('ACCESS_TOKEN_MINUTES');
+    const accessSecret =
+      this.configService.getOrThrow<string>('JWT_ACCESS_SECRET');
+    const accessTokenMinutes = this.configService.getOrThrow<number>(
+      'ACCESS_TOKEN_MINUTES',
+    );
     const payload: AccessTokenPayload = { sub: userId, typ: 'access' };
 
     return this.jwtService.signAsync(payload, {
@@ -77,10 +84,16 @@ export class OauthTokenService {
     userId: string,
     repository: Repository<RefreshToken> = this.refreshTokenRepository,
   ): Promise<{ rawToken: string; refreshTokenId: string }> {
-    const refreshSecret = this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
-    const refreshTokenDays = this.configService.getOrThrow<number>('REFRESH_TOKEN_DAYS');
+    const refreshSecret =
+      this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
+    const refreshTokenDays =
+      this.configService.getOrThrow<number>('REFRESH_TOKEN_DAYS');
     const refreshTokenId = randomUUID();
-    const payload: RefreshTokenPayload = { sub: userId, jti: refreshTokenId, typ: 'refresh' };
+    const payload: RefreshTokenPayload = {
+      sub: userId,
+      jti: refreshTokenId,
+      typ: 'refresh',
+    };
 
     const rawToken = await this.jwtService.signAsync(payload, {
       secret: refreshSecret,
@@ -88,7 +101,9 @@ export class OauthTokenService {
     });
 
     const tokenHash = this.hashToken(rawToken);
-    const expiresAt = new Date(Date.now() + refreshTokenDays * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(
+      Date.now() + refreshTokenDays * 24 * 60 * 60 * 1000,
+    );
 
     const entity = repository.create({
       refreshTokenId,

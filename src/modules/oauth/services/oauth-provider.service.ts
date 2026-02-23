@@ -28,7 +28,9 @@ export type ProviderUserProfile = {
 export class OauthProviderService {
   constructor(private readonly configService: ConfigService) {}
 
-  async exchangeCodeForToken(dto: OauthLoginRequestDto): Promise<ProviderTokenResponse> {
+  async exchangeCodeForToken(
+    dto: OauthLoginRequestDto,
+  ): Promise<ProviderTokenResponse> {
     switch (dto.provider) {
       case OauthProvider.KAKAO:
         return this.exchangeKakaoToken(dto);
@@ -39,7 +41,10 @@ export class OauthProviderService {
     }
   }
 
-  async fetchUserProfile(provider: OauthProvider, accessToken: string): Promise<ProviderUserProfile> {
+  async fetchUserProfile(
+    provider: OauthProvider,
+    accessToken: string,
+  ): Promise<ProviderUserProfile> {
     switch (provider) {
       case OauthProvider.KAKAO:
         return this.fetchKakaoProfile(accessToken);
@@ -50,9 +55,13 @@ export class OauthProviderService {
     }
   }
 
-  private async exchangeKakaoToken(dto: OauthLoginRequestDto): Promise<ProviderTokenResponse> {
+  private async exchangeKakaoToken(
+    dto: OauthLoginRequestDto,
+  ): Promise<ProviderTokenResponse> {
     const clientId = this.configService.getOrThrow<string>('KAKAO_CLIENT_ID');
-    const clientSecret = this.configService.getOrThrow<string>('KAKAO_CLIENT_SECRET');
+    const clientSecret = this.configService.getOrThrow<string>(
+      'KAKAO_CLIENT_SECRET',
+    );
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
       client_id: clientId,
@@ -61,7 +70,10 @@ export class OauthProviderService {
       redirect_uri: dto.redirectUri,
     });
 
-    const data = await this.postForm('https://kauth.kakao.com/oauth/token', body);
+    const data = await this.postForm(
+      'https://kauth.kakao.com/oauth/token',
+      body,
+    );
     return {
       accessToken: data.access_token,
       refreshToken: data.refresh_token,
@@ -70,9 +82,13 @@ export class OauthProviderService {
     };
   }
 
-  private async exchangeGoogleToken(dto: OauthLoginRequestDto): Promise<ProviderTokenResponse> {
+  private async exchangeGoogleToken(
+    dto: OauthLoginRequestDto,
+  ): Promise<ProviderTokenResponse> {
     const clientId = this.configService.getOrThrow<string>('GOOGLE_CLIENT_ID');
-    const clientSecret = this.configService.getOrThrow<string>('GOOGLE_CLIENT_SECRET');
+    const clientSecret = this.configService.getOrThrow<string>(
+      'GOOGLE_CLIENT_SECRET',
+    );
     const body = new URLSearchParams({
       code: dto.code,
       client_id: clientId,
@@ -85,7 +101,10 @@ export class OauthProviderService {
       body.append('code_verifier', dto.codeVerifier);
     }
 
-    const data = await this.postForm('https://oauth2.googleapis.com/token', body);
+    const data = await this.postForm(
+      'https://oauth2.googleapis.com/token',
+      body,
+    );
     return {
       accessToken: data.access_token,
       refreshToken: data.refresh_token,
@@ -94,8 +113,13 @@ export class OauthProviderService {
     };
   }
 
-  private async fetchKakaoProfile(accessToken: string): Promise<ProviderUserProfile> {
-    const data = await this.getJson('https://kapi.kakao.com/v2/user/me', accessToken);
+  private async fetchKakaoProfile(
+    accessToken: string,
+  ): Promise<ProviderUserProfile> {
+    const data = await this.getJson(
+      'https://kapi.kakao.com/v2/user/me',
+      accessToken,
+    );
     const kakaoAccount = data.kakao_account ?? {};
     const profile = kakaoAccount.profile ?? data.properties ?? {};
     const name =
@@ -110,9 +134,15 @@ export class OauthProviderService {
     };
   }
 
-  private async fetchGoogleProfile(accessToken: string): Promise<ProviderUserProfile> {
-    const data = await this.getJson('https://openidconnect.googleapis.com/v1/userinfo', accessToken);
-    const name = data.name ?? (data.email ? data.email.split('@')[0] : 'google_user');
+  private async fetchGoogleProfile(
+    accessToken: string,
+  ): Promise<ProviderUserProfile> {
+    const data = await this.getJson(
+      'https://openidconnect.googleapis.com/v1/userinfo',
+      accessToken,
+    );
+    const name =
+      data.name ?? (data.email ? data.email.split('@')[0] : 'google_user');
 
     return {
       providerUserId: String(data.sub),
@@ -122,7 +152,10 @@ export class OauthProviderService {
     };
   }
 
-  private async postForm(url: string, body: URLSearchParams): Promise<Record<string, any>> {
+  private async postForm(
+    url: string,
+    body: URLSearchParams,
+  ): Promise<Record<string, any>> {
     const response = await this.fetchWithTimeout(url, {
       method: 'POST',
       headers: {
@@ -139,7 +172,10 @@ export class OauthProviderService {
     return data;
   }
 
-  private async getJson(url: string, accessToken: string): Promise<Record<string, any>> {
+  private async getJson(
+    url: string,
+    accessToken: string,
+  ): Promise<Record<string, any>> {
     const response = await this.fetchWithTimeout(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -156,7 +192,10 @@ export class OauthProviderService {
     return this.configService.getOrThrow<number>('OAUTH_HTTP_TIMEOUT_MS');
   }
 
-  private async fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
+  private async fetchWithTimeout(
+    url: string,
+    options: RequestInit,
+  ): Promise<Response> {
     const controller = new AbortController();
     const timeoutMs = this.getOauthTimeoutMs();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -167,7 +206,9 @@ export class OauthProviderService {
       if ((error as Error).name === 'AbortError') {
         throw new GatewayTimeoutException('OAuth provider request timed out.');
       }
-      throw new ServiceUnavailableException('OAuth provider request failed due to a network error.');
+      throw new ServiceUnavailableException(
+        'OAuth provider request failed due to a network error.',
+      );
     } finally {
       clearTimeout(timeoutId);
     }

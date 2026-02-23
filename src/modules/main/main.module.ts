@@ -16,7 +16,13 @@ import { MainUserService } from './services/main-user.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([NotionPage, QuestionStatus, Question, QuestionAttempt, User]),
+    TypeOrmModule.forFeature([
+      NotionPage,
+      QuestionStatus,
+      Question,
+      QuestionAttempt,
+      User,
+    ]),
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({

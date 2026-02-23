@@ -23,7 +23,10 @@ export class StudyController {
   @Post('plans')
   @ApiOperation({ summary: 'Create study plan' })
   @ApiBody({ type: StudyPlanRequestDto })
-  @ApiOkResponse({ type: StudyPlanResponseDto, description: 'Created study plan.' })
+  @ApiOkResponse({
+    type: StudyPlanResponseDto,
+    description: 'Created study plan.',
+  })
   @ApiUnauthorizedResponse({ description: 'Authentication is required.' })
   createPlan(
     @CurrentUserId() userId: string,

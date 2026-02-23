@@ -34,7 +34,14 @@ export class StudyScheduleBuilderService {
     for (let dayOffset = 0; dayOffset < days; dayOffset += 1) {
       const { year, month, day } = this.getKstDateParts(dayOffset);
       const scheduledAtUtc = new Date(
-        Date.UTC(year, month, day, -StudyScheduleBuilderService.KST_OFFSET_HOURS, 0, 0),
+        Date.UTC(
+          year,
+          month,
+          day,
+          -StudyScheduleBuilderService.KST_OFFSET_HOURS,
+          0,
+          0,
+        ),
       );
 
       schedules.push({

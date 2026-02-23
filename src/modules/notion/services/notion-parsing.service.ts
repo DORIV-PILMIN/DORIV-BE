@@ -48,7 +48,10 @@ export class NotionParsingService {
     return lines.join('\n');
   }
 
-  createContentHash(notionPageId: string, content: Record<string, unknown>): string {
+  createContentHash(
+    notionPageId: string,
+    content: Record<string, unknown>,
+  ): string {
     const raw = `${notionPageId}:${JSON.stringify(content)}`;
     return createHash('sha256').update(raw).digest('hex');
   }

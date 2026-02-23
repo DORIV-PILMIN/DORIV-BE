@@ -27,15 +27,22 @@ export class StudyPlanCreationService {
     private readonly studyScheduleBuilderService: StudyScheduleBuilderService,
   ) {}
 
-  async createPlan(userId: string, dto: StudyPlanRequestDto): Promise<StudyPlanResponseDto> {
-    const page = await this.notionPageRepository.findOne({ where: { pageId: dto.pageId } });
+  async createPlan(
+    userId: string,
+    dto: StudyPlanRequestDto,
+  ): Promise<StudyPlanResponseDto> {
+    const page = await this.notionPageRepository.findOne({
+      where: { pageId: dto.pageId },
+    });
     if (!page || page.userId !== userId) {
       throw new BadRequestException('Notion page is not found.');
     }
 
     const total = dto.days * dto.questionsPerDay;
     if (total > 35) {
-      throw new BadRequestException('Total question count must be less than or equal to 35.');
+      throw new BadRequestException(
+        'Total question count must be less than or equal to 35.',
+      );
     }
 
     const startsAt = this.studyScheduleBuilderService.getTodayDateInKst();
@@ -51,7 +58,10 @@ export class StudyPlanCreationService {
     });
     const saved = await this.studyPlanRepository.save(plan);
 
-    const scheduleSeeds = this.studyScheduleBuilderService.buildScheduleSeeds(saved.planId, dto.days);
+    const scheduleSeeds = this.studyScheduleBuilderService.buildScheduleSeeds(
+      saved.planId,
+      dto.days,
+    );
     const schedules = await this.studyScheduleRepository.save(
       scheduleSeeds.map((seed) => this.studyScheduleRepository.create(seed)),
     );
@@ -96,7 +106,9 @@ export class StudyPlanCreationService {
     };
   }
 
-  private async getLatestSnapshot(pageId: string): Promise<PageSnapshot | null> {
+  private async getLatestSnapshot(
+    pageId: string,
+  ): Promise<PageSnapshot | null> {
     return this.pageSnapshotRepository.findOne({
       where: { pageId },
       order: { createdAt: 'DESC' },

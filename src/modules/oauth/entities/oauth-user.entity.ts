@@ -10,9 +10,13 @@ import {
 import { User } from '../../user/entities/user.entity';
 
 @Entity({ name: 'oauth_users' })
-@Index('ux_oauth_users_provider_provider_user_id', ['provider', 'providerUserId'], {
-  unique: true,
-})
+@Index(
+  'ux_oauth_users_provider_provider_user_id',
+  ['provider', 'providerUserId'],
+  {
+    unique: true,
+  },
+)
 export class OauthUser {
   @PrimaryGeneratedColumn('uuid', { name: 'oauth_user_id' })
   oauthUserId!: string;
@@ -27,7 +31,12 @@ export class OauthUser {
   @Column({ name: 'provider_user_id', type: 'varchar', length: 255 })
   providerUserId!: string;
 
-  @Column({ name: 'provider_email', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'provider_email',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   providerEmail!: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })

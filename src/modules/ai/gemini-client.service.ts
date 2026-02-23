@@ -23,8 +23,11 @@ export class GeminiClientService {
 
   constructor(private readonly configService: ConfigService) {
     this.apiKey = configService.get<string>('GEMINI_API_KEY') ?? '';
-    this.model = configService.get<string>('GEMINI_MODEL') ?? 'gemini-2.5-flash';
-    this.timeoutMs = Number(configService.get<string>('GEMINI_TIMEOUT_MS') ?? 15000);
+    this.model =
+      configService.get<string>('GEMINI_MODEL') ?? 'gemini-2.5-flash';
+    this.timeoutMs = Number(
+      configService.get<string>('GEMINI_TIMEOUT_MS') ?? 15000,
+    );
   }
 
   async generateText(prompt: string): Promise<string> {
@@ -69,7 +72,10 @@ export class GeminiClientService {
     return text;
   }
 
-  private async fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
+  private async fetchWithTimeout(
+    url: string,
+    options: RequestInit,
+  ): Promise<Response> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
@@ -78,7 +84,9 @@ export class GeminiClientService {
       if ((error as Error).name === 'AbortError') {
         throw new GatewayTimeoutException('AI service request timed out.');
       }
-      throw new ServiceUnavailableException('AI service request failed due to a network error.');
+      throw new ServiceUnavailableException(
+        'AI service request failed due to a network error.',
+      );
     } finally {
       clearTimeout(timeoutId);
     }

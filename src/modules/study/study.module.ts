@@ -19,7 +19,13 @@ import { StudyScheduleProcessingService } from './services/study-schedule-proces
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([StudyPlan, StudySchedule, NotionPage, PageSnapshot, Question]),
+    TypeOrmModule.forFeature([
+      StudyPlan,
+      StudySchedule,
+      NotionPage,
+      PageSnapshot,
+      Question,
+    ]),
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({

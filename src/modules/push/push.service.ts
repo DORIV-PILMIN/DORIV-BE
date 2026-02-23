@@ -4,9 +4,11 @@ import { PushTokenRegisterResponseDto } from './dtos/push-token-register-respons
 import { PushSendRequestDto } from './dtos/push-send-request.dto';
 import { PushSendResponseDto } from './dtos/push-send-response.dto';
 import { PushSendLogListResponseDto } from './dtos/push-send-log-list-response.dto';
-import { PushToken } from './entities/push-token.entity';
 import { FcmAuthService } from './services/fcm-auth.service';
-import { FcmMessageService, PushSendResult } from './services/fcm-message.service';
+import {
+  FcmMessageService,
+  PushSendResult,
+} from './services/fcm-message.service';
 import { PushLogService } from './services/push-log.service';
 import { PushTokenService } from './services/push-token.service';
 
@@ -44,7 +46,10 @@ export class PushService {
     return this.fcmAuthService.getVapidPublicKey();
   }
 
-  async sendToUser(userId: string, dto: PushSendRequestDto): Promise<PushSendResponseDto> {
+  async sendToUser(
+    userId: string,
+    dto: PushSendRequestDto,
+  ): Promise<PushSendResponseDto> {
     const tokens = await this.pushTokenService.findByUserId(userId);
     if (tokens.length === 0) {
       return { successCount: 0, failureCount: 0, invalidTokenRemoved: 0 };
@@ -57,20 +62,27 @@ export class PushService {
     const title = dto.title || '일주일이 지났어요!';
     const body = dto.body || '지금 복습하면 기억이 더 오래가요.';
 
-    const items = await this.runWithConcurrency(tokens, this.sendConcurrency, async (tokenEntity) => {
-      const result = await this.fcmMessageService.sendToToken(tokenEntity.token, {
-        ...dto,
-        title,
-        body,
-      });
+    const items = await this.runWithConcurrency(
+      tokens,
+      this.sendConcurrency,
+      async (tokenEntity) => {
+        const result = await this.fcmMessageService.sendToToken(
+          tokenEntity.token,
+          {
+            ...dto,
+            title,
+            body,
+          },
+        );
 
-      return {
-        pushTokenId: tokenEntity.pushTokenId,
-        token: tokenEntity.token,
-        status: result.status,
-        errorCode: result.errorCode,
-      } satisfies DeliveryItem;
-    });
+        return {
+          pushTokenId: tokenEntity.pushTokenId,
+          token: tokenEntity.token,
+          status: result.status,
+          errorCode: result.errorCode,
+        } satisfies DeliveryItem;
+      },
+    );
 
     const invalidTokens: string[] = [];
     for (const item of items) {
@@ -134,7 +146,10 @@ export class PushService {
       }
     };
 
-    const workers = Array.from({ length: Math.min(concurrency, items.length) }, () => runner());
+    const workers = Array.from(
+      { length: Math.min(concurrency, items.length) },
+      () => runner(),
+    );
     await Promise.all(workers);
     return results;
   }
