@@ -1,16 +1,12 @@
 import { ForbiddenException } from '@nestjs/common';
 import { Repository } from 'typeorm';
-import { Question } from '../entities/question.entity';
 import { QuestionAttempt } from '../entities/question-attempt.entity';
 import { QuestionStatus } from '../entities/question-status.entity';
 import { QuestionAttemptService } from './question-attempt.service';
 import { QuestionEvaluationService } from './question-evaluation.service';
+import { QuestionQueryService } from './question-query.service';
 
 describe('QuestionAttemptService', () => {
-  const questionRepository = {
-    createQueryBuilder: jest.fn(),
-  } as unknown as Repository<Question>;
-
   const questionAttemptRepository = {
     create: jest.fn((value) => ({ questionAttemptId: 'attempt-1', ...value })),
     save: jest.fn(async (value) => value),
@@ -29,6 +25,10 @@ describe('QuestionAttemptService', () => {
     },
   } as unknown as Repository<QuestionStatus>;
 
+  const questionQueryService = {
+    findOwnedQuestion: jest.fn(),
+  } as unknown as QuestionQueryService;
+
   const evaluationService = {
     evaluate: jest
       .fn()
@@ -40,18 +40,14 @@ describe('QuestionAttemptService', () => {
   });
 
   it('throws when question is not owned by user', async () => {
-    const qb = {
-      innerJoin: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getOne: jest.fn().mockResolvedValue(null),
-    };
-    (questionRepository.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+    (questionQueryService.findOwnedQuestion as jest.Mock).mockResolvedValue(
+      null,
+    );
 
     const service = new QuestionAttemptService(
-      questionRepository,
       questionAttemptRepository,
       questionStatusRepository,
+      questionQueryService,
       evaluationService,
     );
 
@@ -61,20 +57,15 @@ describe('QuestionAttemptService', () => {
   });
 
   it('stores evaluation result for owned question', async () => {
-    const qb = {
-      innerJoin: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getOne: jest
-        .fn()
-        .mockResolvedValue({ questionId: 'question-1', prompt: 'prompt' }),
-    };
-    (questionRepository.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+    (questionQueryService.findOwnedQuestion as jest.Mock).mockResolvedValue({
+      questionId: 'question-1',
+      prompt: 'prompt',
+    });
 
     const service = new QuestionAttemptService(
-      questionRepository,
       questionAttemptRepository,
       questionStatusRepository,
+      questionQueryService,
       evaluationService,
     );
 

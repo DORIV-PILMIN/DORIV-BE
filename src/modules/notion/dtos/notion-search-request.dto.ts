@@ -3,6 +3,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -22,9 +23,8 @@ export class NotionSearchRequestDto {
   @Max(20)
   pageSize?: number;
 
-  @ApiPropertyOptional({ example: 'some-cursor' })
-  @IsString()
+  @ApiPropertyOptional({ example: '35b54ef2-17bf-4c89-b828-6fd91b02db4d' })
+  @IsUUID()
   @IsOptional()
-  @MaxLength(200)
   startCursor?: string;
 }

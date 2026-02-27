@@ -1,22 +1,21 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Question } from '../entities/question.entity';
 import { QuestionAttempt } from '../entities/question-attempt.entity';
 import { QuestionStatus } from '../entities/question-status.entity';
 import { QuestionAttemptRequestDto } from '../dtos/question-attempt-request.dto';
 import { QuestionAttemptResultDto } from '../dtos/question-attempt-result.dto';
 import { QuestionEvaluationService } from './question-evaluation.service';
+import { QuestionQueryService } from './question-query.service';
 
 @Injectable()
 export class QuestionAttemptService {
   constructor(
-    @InjectRepository(Question)
-    private readonly questionRepository: Repository<Question>,
     @InjectRepository(QuestionAttempt)
     private readonly questionAttemptRepository: Repository<QuestionAttempt>,
     @InjectRepository(QuestionStatus)
     private readonly questionStatusRepository: Repository<QuestionStatus>,
+    private readonly questionQueryService: QuestionQueryService,
     private readonly evaluationService: QuestionEvaluationService,
   ) {}
 
@@ -25,13 +24,10 @@ export class QuestionAttemptService {
     questionId: string,
     dto: QuestionAttemptRequestDto,
   ): Promise<QuestionAttemptResultDto> {
-    const question = await this.questionRepository
-      .createQueryBuilder('q')
-      .innerJoin('page_snapshots', 'ps', 'ps.snapshot_id = q.snapshot_id')
-      .innerJoin('notion_pages', 'np', 'np.page_id = ps.page_id')
-      .where('q.question_id = :questionId', { questionId })
-      .andWhere('np.user_id = :userId', { userId })
-      .getOne();
+    const question = await this.questionQueryService.findOwnedQuestion(
+      userId,
+      questionId,
+    );
 
     if (!question) {
       throw new ForbiddenException('You do not have access to this question.');

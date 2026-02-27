@@ -12,6 +12,7 @@ import { QuestionAttempt } from './entities/question-attempt.entity';
 import { QuestionStatus } from './entities/question-status.entity';
 import { QuestionAttemptService } from './services/question-attempt.service';
 import { QuestionEvaluationService } from './services/question-evaluation.service';
+import { QuestionQueryService } from './services/question-query.service';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { QuestionEvaluationService } from './services/question-evaluation.servic
     GeminiClientService,
     QuestionGenerationService,
     QuestionEvaluationService,
+    QuestionQueryService,
     QuestionAttemptService,
   ],
   controllers: [QuestionController],

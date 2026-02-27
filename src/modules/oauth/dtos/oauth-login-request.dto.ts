@@ -4,6 +4,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUrl,
   MaxLength,
 } from 'class-validator';
 import { OauthProvider } from './oauth-provider.enum';
@@ -26,6 +27,10 @@ export class OauthLoginRequestDto {
 
   @ApiProperty({ example: 'https://example.com/oauth/callback' })
   @IsString()
+  @IsUrl(
+    { require_protocol: true },
+    { message: 'redirectUri must be a valid URL.' },
+  )
   @IsNotEmpty()
   @MaxLength(2048)
   redirectUri!: string;
