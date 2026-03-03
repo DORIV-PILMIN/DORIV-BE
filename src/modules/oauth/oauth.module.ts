@@ -7,6 +7,7 @@ import { OauthService } from './services/oauth.service';
 import { OauthProviderService } from './services/oauth-provider.service';
 import { OauthUserService } from './services/oauth-user.service';
 import { OauthTokenService } from './services/oauth-token.service';
+import { OauthCallbackTicketService } from './services/oauth-callback-ticket.service';
 import { User } from '../user/entities/user.entity';
 import { OauthUser } from './entities/oauth-user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
@@ -27,6 +28,7 @@ import { RefreshToken } from './entities/refresh-token.entity';
     OauthProviderService,
     OauthUserService,
     OauthTokenService,
+    OauthCallbackTicketService,
   ],
   exports: [OauthService],
 })
