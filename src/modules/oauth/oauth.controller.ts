@@ -4,6 +4,7 @@
   Controller,
   Get,
   InternalServerErrorException,
+  ParseEnumPipe,
   Post,
   Query,
   Res,
@@ -26,9 +27,11 @@ import { OauthLoginRequestDto } from './dtos/oauth-login-request.dto';
 import { OauthLoginResponseDto } from './dtos/oauth-login-response.dto';
 import { OauthRefreshRequestDto } from './dtos/oauth-refresh-request.dto';
 import { OauthProvider } from './dtos/oauth-provider.enum';
+import { OauthAuthorizeUrlResponseDto } from './dtos/oauth-authorize-url-response.dto';
 import { OauthCallbackExchangeRequestDto } from './dtos/oauth-callback-exchange-request.dto';
 import { OauthService } from './services/oauth.service';
 import { OauthCallbackTicketService } from './services/oauth-callback-ticket.service';
+import { OauthAuthorizationSessionService } from './services/oauth-authorization-session.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUserId } from '../../common/decorators/current-user-id.decorator';
 import { OauthUserDto } from './dtos/oauth-user.dto';
@@ -40,6 +43,7 @@ export class OauthController {
     private readonly oauthService: OauthService,
     private readonly configService: ConfigService,
     private readonly callbackTicketService: OauthCallbackTicketService,
+    private readonly authorizationSessionService: OauthAuthorizationSessionService,
   ) {}
 
   @Post('login')
@@ -75,6 +79,28 @@ export class OauthController {
     return this.oauthService.login(dto);
   }
 
+  @Get('url')
+  @ApiOperation({ summary: 'OAuth 인가 URL 발급 (PKCE/state 서버 관리)' })
+  @ApiQuery({ name: 'provider', enum: OauthProvider, required: true })
+  @ApiOkResponse({ type: OauthAuthorizeUrlResponseDto })
+  getAuthorizeUrl(
+    @Query('provider', new ParseEnumPipe(OauthProvider))
+    provider: OauthProvider,
+  ): OauthAuthorizeUrlResponseDto {
+    const redirectUri = this.getProviderRedirectUri(provider);
+    const authorizationPayload = this.authorizationSessionService.create(
+      provider,
+      redirectUri,
+    );
+
+    return {
+      url: this.buildProviderAuthorizeUrl(provider, redirectUri, {
+        state: authorizationPayload.state,
+        codeChallenge: authorizationPayload.codeChallenge,
+      }),
+    };
+  }
+
   @Post('callback/exchange')
   @ApiOperation({ summary: 'OAuth 콜백 티켓 교환' })
   @ApiBody({ type: OauthCallbackExchangeRequestDto })
@@ -91,6 +117,7 @@ export class OauthController {
   @Get('google/callback')
   @ApiOperation({ summary: 'Google OAuth callback' })
   @ApiQuery({ name: 'code', required: false })
+  @ApiQuery({ name: 'state', required: false })
   @ApiQuery({ name: 'error', required: false })
   @ApiQuery({ name: 'error_description', required: false })
   @ApiFoundResponse({
@@ -99,16 +126,15 @@ export class OauthController {
   })
   async googleCallback(
     @Query('code') code: string | undefined,
+    @Query('state') state: string | undefined,
     @Query('error') error: string | undefined,
     @Query('error_description') errorDescription: string | undefined,
     @Res() res: Response,
   ): Promise<void> {
-    const redirectUri =
-      this.configService.getOrThrow<string>('GOOGLE_REDIRECT_URI');
     await this.handleCallbackRedirect(
       OauthProvider.GOOGLE,
-      redirectUri,
       code,
+      state,
       error,
       errorDescription,
       res,
@@ -118,6 +144,7 @@ export class OauthController {
   @Get('kakao/callback')
   @ApiOperation({ summary: 'Kakao OAuth callback' })
   @ApiQuery({ name: 'code', required: false })
+  @ApiQuery({ name: 'state', required: false })
   @ApiQuery({ name: 'error', required: false })
   @ApiQuery({ name: 'error_description', required: false })
   @ApiFoundResponse({
@@ -126,17 +153,15 @@ export class OauthController {
   })
   async kakaoCallback(
     @Query('code') code: string | undefined,
+    @Query('state') state: string | undefined,
     @Query('error') error: string | undefined,
     @Query('error_description') errorDescription: string | undefined,
     @Res() res: Response,
   ): Promise<void> {
-    const redirectUri = this.configService.getOrThrow<string>(
-      'KAKAO_REDIRECT_URI',
-    );
     await this.handleCallbackRedirect(
       OauthProvider.KAKAO,
-      redirectUri,
       code,
+      state,
       error,
       errorDescription,
       res,
@@ -166,19 +191,26 @@ export class OauthController {
 
   private async handleCallbackRedirect(
     provider: OauthProvider,
-    redirectUri: string,
     code: string | undefined,
+    state: string | undefined,
     error: string | undefined,
     errorDescription: string | undefined,
     res: Response,
   ): Promise<void> {
+    if (!state) {
+      throw new BadRequestException('Missing OAuth state.');
+    }
+
+    const session = this.authorizationSessionService.consume(provider, state);
     const loginResponse = await this.loginFromCallback(
       provider,
-      redirectUri,
+      session.redirectUri,
+      session.codeVerifier,
       code,
       error,
       errorDescription,
     );
+
     const ticket = this.callbackTicketService.issue(loginResponse);
     const redirectUrl = this.buildSuccessRedirectUrl(ticket);
     res.redirect(302, redirectUrl);
@@ -187,6 +219,7 @@ export class OauthController {
   private loginFromCallback(
     provider: OauthProvider,
     redirectUri: string,
+    codeVerifier: string | undefined,
     code: string | undefined,
     error: string | undefined,
     errorDescription: string | undefined,
@@ -207,6 +240,7 @@ export class OauthController {
       provider,
       code,
       redirectUri,
+      codeVerifier,
     });
   }
 
@@ -228,5 +262,48 @@ export class OauthController {
     url.searchParams.set('ticket', ticket);
     return url.toString();
   }
-}
 
+  private getProviderRedirectUri(provider: OauthProvider): string {
+    if (provider === OauthProvider.GOOGLE) {
+      return this.configService.getOrThrow<string>('GOOGLE_REDIRECT_URI');
+    }
+    return this.configService.getOrThrow<string>('KAKAO_REDIRECT_URI');
+  }
+
+  private buildProviderAuthorizeUrl(
+    provider: OauthProvider,
+    redirectUri: string,
+    payload: { state: string; codeChallenge?: string },
+  ): string {
+    if (provider === OauthProvider.GOOGLE) {
+      if (!payload.codeChallenge) {
+        throw new InternalServerErrorException(
+          'Google PKCE code challenge is missing.',
+        );
+      }
+
+      const clientId = this.configService.getOrThrow<string>('GOOGLE_CLIENT_ID');
+      const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        scope: 'openid email profile',
+        access_type: 'offline',
+        prompt: 'consent',
+        state: payload.state,
+        code_challenge: payload.codeChallenge,
+        code_challenge_method: 'S256',
+      });
+      return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    }
+
+    const clientId = this.configService.getOrThrow<string>('KAKAO_CLIENT_ID');
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      state: payload.state,
+    });
+    return `https://kauth.kakao.com/oauth/authorize?${params.toString()}`;
+  }
+}
