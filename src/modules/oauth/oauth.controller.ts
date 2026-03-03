@@ -3,6 +3,7 @@
   Body,
   Controller,
   Get,
+  Headers,
   InternalServerErrorException,
   ParseEnumPipe,
   Post,
@@ -86,11 +87,25 @@ export class OauthController {
   getAuthorizeUrl(
     @Query('provider', new ParseEnumPipe(OauthProvider))
     provider: OauthProvider,
+    @Res({ passthrough: true }) res: Response,
   ): OauthAuthorizeUrlResponseDto {
     const redirectUri = this.getProviderRedirectUri(provider);
     const authorizationPayload = this.authorizationSessionService.create(
       provider,
       redirectUri,
+    );
+
+    const isSecureCookie = redirectUri.startsWith('https://');
+    res.cookie(
+      this.getOauthSessionCookieName(provider),
+      authorizationPayload.sessionId,
+      {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: isSecureCookie,
+        path: '/oauth',
+        maxAge: 10 * 60 * 1000,
+      },
     );
 
     return {
@@ -122,13 +137,14 @@ export class OauthController {
   @ApiQuery({ name: 'error_description', required: false })
   @ApiFoundResponse({
     description:
-      'OAuth 성공 시 OAUTH_SUCCESS_REDIRECT_URL(/main)에 ticket 쿼리와 함께 리다이렉트',
+      'OAuth 성공 시 FE_URL/oauth/google/callback 으로 ticket 쿼리와 함께 리다이렉트',
   })
   async googleCallback(
     @Query('code') code: string | undefined,
     @Query('state') state: string | undefined,
     @Query('error') error: string | undefined,
     @Query('error_description') errorDescription: string | undefined,
+    @Headers('cookie') cookieHeader: string | undefined,
     @Res() res: Response,
   ): Promise<void> {
     await this.handleCallbackRedirect(
@@ -137,6 +153,7 @@ export class OauthController {
       state,
       error,
       errorDescription,
+      cookieHeader,
       res,
     );
   }
@@ -149,13 +166,14 @@ export class OauthController {
   @ApiQuery({ name: 'error_description', required: false })
   @ApiFoundResponse({
     description:
-      'OAuth 성공 시 OAUTH_SUCCESS_REDIRECT_URL(/main)에 ticket 쿼리와 함께 리다이렉트',
+      'OAuth 성공 시 FE_URL/oauth/kakao/callback 으로 ticket 쿼리와 함께 리다이렉트',
   })
   async kakaoCallback(
     @Query('code') code: string | undefined,
     @Query('state') state: string | undefined,
     @Query('error') error: string | undefined,
     @Query('error_description') errorDescription: string | undefined,
+    @Headers('cookie') cookieHeader: string | undefined,
     @Res() res: Response,
   ): Promise<void> {
     await this.handleCallbackRedirect(
@@ -164,6 +182,7 @@ export class OauthController {
       state,
       error,
       errorDescription,
+      cookieHeader,
       res,
     );
   }
@@ -195,13 +214,23 @@ export class OauthController {
     state: string | undefined,
     error: string | undefined,
     errorDescription: string | undefined,
+    cookieHeader: string | undefined,
     res: Response,
   ): Promise<void> {
     if (!state) {
       throw new BadRequestException('Missing OAuth state.');
     }
 
-    const session = this.authorizationSessionService.consume(provider, state);
+    const sessionId = this.readOauthSessionIdFromCookie(provider, cookieHeader);
+    if (!sessionId) {
+      throw new UnauthorizedException('Missing OAuth session.');
+    }
+
+    const session = this.authorizationSessionService.consume(
+      provider,
+      sessionId,
+      state,
+    );
     const loginResponse = await this.loginFromCallback(
       provider,
       session.redirectUri,
@@ -211,8 +240,9 @@ export class OauthController {
       errorDescription,
     );
 
+    this.clearOauthSessionCookie(provider, session.redirectUri, res);
     const ticket = this.callbackTicketService.issue(loginResponse);
-    const redirectUrl = this.buildSuccessRedirectUrl(ticket);
+    const redirectUrl = this.buildSuccessRedirectUrl(provider, ticket);
     res.redirect(302, redirectUrl);
   }
 
@@ -244,21 +274,21 @@ export class OauthController {
     });
   }
 
-  private buildSuccessRedirectUrl(ticket: string): string {
-    const configuredUrl =
-      this.configService.get<string>('OAUTH_SUCCESS_REDIRECT_URL') ??
-      this.configService.get<string>('NOTION_OAUTH_SUCCESS_REDIRECT_URL');
-
-    if (!configuredUrl) {
+  private buildSuccessRedirectUrl(
+    provider: OauthProvider,
+    ticket: string,
+  ): string {
+    const frontendUrl = this.configService.get<string>('OAUTH_FRONTEND_URL');
+    if (!frontendUrl) {
       throw new InternalServerErrorException(
-        'OAUTH_SUCCESS_REDIRECT_URL is required.',
+        'OAUTH_FRONTEND_URL is required.',
       );
     }
 
-    const url = new URL(configuredUrl);
-    if (url.pathname === '/' || url.pathname === '') {
-      url.pathname = '/main';
-    }
+    const normalizedBase = frontendUrl.endsWith('/')
+      ? frontendUrl
+      : `${frontendUrl}/`;
+    const url = new URL(`oauth/${provider}/callback`, normalizedBase);
     url.searchParams.set('ticket', ticket);
     return url.toString();
   }
@@ -305,5 +335,46 @@ export class OauthController {
       state: payload.state,
     });
     return `https://kauth.kakao.com/oauth/authorize?${params.toString()}`;
+  }
+
+  private getOauthSessionCookieName(provider: OauthProvider): string {
+    return `oauth_session_${provider}`;
+  }
+
+  private readOauthSessionIdFromCookie(
+    provider: OauthProvider,
+    cookieHeader: string | undefined,
+  ): string | null {
+    if (!cookieHeader) {
+      return null;
+    }
+
+    const cookieName = this.getOauthSessionCookieName(provider);
+    const cookies = cookieHeader.split(';');
+    for (const rawCookie of cookies) {
+      const [name, ...valueParts] = rawCookie.trim().split('=');
+      if (name === cookieName) {
+        const value = valueParts.join('=');
+        if (value) {
+          return decodeURIComponent(value);
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private clearOauthSessionCookie(
+    provider: OauthProvider,
+    redirectUri: string,
+    res: Response,
+  ): void {
+    const isSecureCookie = redirectUri.startsWith('https://');
+    res.clearCookie(this.getOauthSessionCookieName(provider), {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: isSecureCookie,
+      path: '/oauth',
+    });
   }
 }

@@ -8,12 +8,14 @@ import { OauthProvider } from '../dtos/oauth-provider.enum';
 
 type OauthAuthorizationSession = {
   provider: OauthProvider;
+  state: string;
   redirectUri: string;
   codeVerifier?: string;
   expiresAt: number;
 };
 
 export type OauthAuthorizationPayload = {
+  sessionId: string;
   state: string;
   codeChallenge?: string;
 };
@@ -32,35 +34,39 @@ export class OauthAuthorizationSessionService {
     provider: OauthProvider,
     redirectUri: string,
   ): OauthAuthorizationPayload {
+    const sessionId = randomUUID();
     const state = randomUUID();
     const expiresAt = Date.now() + this.sessionTtlMs;
 
     if (provider === OauthProvider.GOOGLE) {
       const codeVerifier = this.generateCodeVerifier();
       const codeChallenge = this.createCodeChallenge(codeVerifier);
-      this.sessions.set(state, {
+      this.sessions.set(sessionId, {
         provider,
+        state,
         redirectUri,
         codeVerifier,
         expiresAt,
       });
-      return { state, codeChallenge };
+      return { sessionId, state, codeChallenge };
     }
 
-    this.sessions.set(state, {
+    this.sessions.set(sessionId, {
       provider,
+      state,
       redirectUri,
       expiresAt,
     });
-    return { state };
+    return { sessionId, state };
   }
 
   consume(
     provider: OauthProvider,
+    sessionId: string,
     state: string,
   ): { redirectUri: string; codeVerifier?: string } {
-    const session = this.sessions.get(state);
-    this.sessions.delete(state);
+    const session = this.sessions.get(sessionId);
+    this.sessions.delete(sessionId);
 
     if (!session || session.expiresAt <= Date.now()) {
       throw new UnauthorizedException('OAuth state is invalid or expired.');
@@ -68,6 +74,10 @@ export class OauthAuthorizationSessionService {
 
     if (session.provider !== provider) {
       throw new BadRequestException('OAuth state/provider mismatch.');
+    }
+
+    if (session.state !== state) {
+      throw new UnauthorizedException('OAuth state is invalid or expired.');
     }
 
     if (provider === OauthProvider.GOOGLE && !session.codeVerifier) {
@@ -90,9 +100,9 @@ export class OauthAuthorizationSessionService {
 
   private cleanupExpiredSessions(): void {
     const now = Date.now();
-    for (const [state, session] of this.sessions.entries()) {
+    for (const [sessionId, session] of this.sessions.entries()) {
       if (session.expiresAt <= now) {
-        this.sessions.delete(state);
+        this.sessions.delete(sessionId);
       }
     }
   }
