@@ -23,6 +23,7 @@ export type OauthAuthorizationPayload = {
 @Injectable()
 export class OauthAuthorizationSessionService {
   private readonly sessions = new Map<string, OauthAuthorizationSession>();
+  private readonly stateIndex = new Map<string, string>();
   private readonly sessionTtlMs = 10 * 60 * 1000;
 
   constructor() {
@@ -48,6 +49,7 @@ export class OauthAuthorizationSessionService {
         codeVerifier,
         expiresAt,
       });
+      this.stateIndex.set(state, sessionId);
       return { sessionId, state, codeChallenge };
     }
 
@@ -57,6 +59,7 @@ export class OauthAuthorizationSessionService {
       redirectUri,
       expiresAt,
     });
+    this.stateIndex.set(state, sessionId);
     return { sessionId, state };
   }
 
@@ -66,7 +69,7 @@ export class OauthAuthorizationSessionService {
     state: string,
   ): { redirectUri: string; codeVerifier?: string } {
     const session = this.sessions.get(sessionId);
-    this.sessions.delete(sessionId);
+    this.deleteSession(sessionId, session);
 
     if (!session || session.expiresAt <= Date.now()) {
       throw new UnauthorizedException('OAuth state is invalid or expired.');
@@ -90,6 +93,17 @@ export class OauthAuthorizationSessionService {
     };
   }
 
+  consumeByState(
+    provider: OauthProvider,
+    state: string,
+  ): { redirectUri: string; codeVerifier?: string } {
+    const sessionId = this.stateIndex.get(state);
+    if (!sessionId) {
+      throw new UnauthorizedException('OAuth state is invalid or expired.');
+    }
+    return this.consume(provider, sessionId, state);
+  }
+
   private generateCodeVerifier(): string {
     return randomBytes(32).toString('base64url');
   }
@@ -102,8 +116,18 @@ export class OauthAuthorizationSessionService {
     const now = Date.now();
     for (const [sessionId, session] of this.sessions.entries()) {
       if (session.expiresAt <= now) {
-        this.sessions.delete(sessionId);
+        this.deleteSession(sessionId, session);
       }
+    }
+  }
+
+  private deleteSession(
+    sessionId: string,
+    session: OauthAuthorizationSession | undefined,
+  ): void {
+    this.sessions.delete(sessionId);
+    if (session) {
+      this.stateIndex.delete(session.state);
     }
   }
 }

@@ -222,15 +222,9 @@ export class OauthController {
     }
 
     const sessionId = this.readOauthSessionIdFromCookie(provider, cookieHeader);
-    if (!sessionId) {
-      throw new UnauthorizedException('Missing OAuth session.');
-    }
-
-    const session = this.authorizationSessionService.consume(
-      provider,
-      sessionId,
-      state,
-    );
+    const session = sessionId
+      ? this.authorizationSessionService.consume(provider, sessionId, state)
+      : this.authorizationSessionService.consumeByState(provider, state);
     const loginResponse = await this.loginFromCallback(
       provider,
       session.redirectUri,
