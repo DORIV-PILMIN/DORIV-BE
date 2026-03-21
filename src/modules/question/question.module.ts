@@ -38,6 +38,6 @@ import { QuestionQueryService } from './services/question-query.service';
     QuestionAttemptService,
   ],
   controllers: [QuestionController],
-  exports: [QuestionGenerationService],
+  exports: [QuestionGenerationService, QuestionQueryService],
 })
 export class QuestionModule {}

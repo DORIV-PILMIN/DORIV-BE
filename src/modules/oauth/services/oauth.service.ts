@@ -29,15 +29,14 @@ export class OauthService {
     const profile = await this.providerService.fetchUserProfile(
       provider,
       tokenResponse.accessToken,
+      tokenResponse.idToken,
     );
 
     const result = await this.userService.upsertUser({ provider, profile });
-    const accessToken = await this.tokenService.createAccessToken(
-      result.user.userId,
-    );
-    const refreshToken = await this.tokenService.createRefreshToken(
-      result.user.userId,
-    );
+    const [accessToken, refreshToken] = await Promise.all([
+      this.tokenService.createAccessToken(result.user.userId),
+      this.tokenService.createRefreshToken(result.user.userId),
+    ]);
 
     return this.tokenService.buildTokenResponse({
       accessToken,
@@ -100,17 +99,13 @@ export class OauthService {
           throw new UnauthorizedException('사용자를 찾을 수 없습니다.');
         }
 
-        const next = await this.tokenService.createRefreshToken(
-          user.userId,
-          refreshRepo,
-        );
+        const [next, accessToken] = await Promise.all([
+          this.tokenService.createRefreshToken(user.userId, refreshRepo),
+          this.tokenService.createAccessToken(user.userId),
+        ]);
         existing.revokedAt = new Date();
         existing.replacedByTokenId = next.refreshTokenId;
         await refreshRepo.save(existing);
-
-        const accessToken = await this.tokenService.createAccessToken(
-          user.userId,
-        );
         return { accessToken, refreshToken: next.rawToken, user };
       },
     );

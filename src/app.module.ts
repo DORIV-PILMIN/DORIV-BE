@@ -80,6 +80,10 @@ const validateEnv = (env: Record<string, string | undefined>) => ({
     env.REFRESH_TOKEN_DAYS,
     'REFRESH_TOKEN_DAYS',
   ),
+  OAUTH_HTTP_TIMEOUT_MS: toPositiveNumber(
+    env.OAUTH_HTTP_TIMEOUT_MS,
+    'OAUTH_HTTP_TIMEOUT_MS',
+  ),
   DB_SYNCHRONIZE: String(resolveSynchronize(env)),
 });
 

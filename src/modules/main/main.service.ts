@@ -7,6 +7,8 @@ import { MainNotionSummaryService } from './services/main-notion-summary.service
 import { MainQuestionSummaryService } from './services/main-question-summary.service';
 import { MainStatsService } from './services/main-stats.service';
 import { MainUserService } from './services/main-user.service';
+import { QuestionQueryService } from '../question/services/question-query.service';
+import { QuestionViewDto } from '../question/dtos/question-view.dto';
 
 @Injectable()
 export class MainService {
@@ -15,6 +17,7 @@ export class MainService {
     private readonly mainNotionSummaryService: MainNotionSummaryService,
     private readonly mainQuestionSummaryService: MainQuestionSummaryService,
     private readonly mainStatsService: MainStatsService,
+    private readonly questionQueryService: QuestionQueryService,
   ) {}
 
   async getUser(userId: string): Promise<MainUserDto> {
@@ -27,6 +30,10 @@ export class MainService {
 
   async getQuestion(userId: string): Promise<MainQuestionDomainDto> {
     return this.mainQuestionSummaryService.getQuestion(userId);
+  }
+
+  async getWaitingQuestion(userId: string): Promise<QuestionViewDto | null> {
+    return this.questionQueryService.getWaitingQuestion(userId);
   }
 
   async getStats(userId: string): Promise<MainStatsDto> {

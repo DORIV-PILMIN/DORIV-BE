@@ -312,8 +312,6 @@ export class OauthController {
         redirect_uri: redirectUri,
         response_type: 'code',
         scope: 'openid email profile',
-        access_type: 'offline',
-        prompt: 'consent',
         state: payload.state,
         code_challenge: payload.codeChallenge,
         code_challenge_method: 'S256',

@@ -13,19 +13,25 @@ import { NotionPageResponseDto } from '../dtos/notion-page-response.dto';
 import { NotionClientService } from './notion-client.service';
 import { NotionConnectionAccessService } from './notion-connection-access.service';
 import { NotionParsingService } from './notion-parsing.service';
+import { Question } from '../../question/entities/question.entity';
+import { QuestionGenerationService } from '../../question/services/question-generation.service';
 
 @Injectable()
 export class NotionPageConnectService {
   private static readonly MAX_PAGES_PER_USER = 5;
+  private static readonly DEFAULT_INITIAL_QUESTIONS_COUNT = 3;
 
   constructor(
     @InjectRepository(NotionPage)
     private readonly notionPageRepository: Repository<NotionPage>,
     @InjectRepository(PageSnapshot)
     private readonly pageSnapshotRepository: Repository<PageSnapshot>,
+    @InjectRepository(Question)
+    private readonly questionRepository: Repository<Question>,
     private readonly notionClient: NotionClientService,
     private readonly notionConnectionAccessService: NotionConnectionAccessService,
     private readonly parsingService: NotionParsingService,
+    private readonly questionGenerationService: QuestionGenerationService,
   ) {}
 
   async addPage(
@@ -46,6 +52,13 @@ export class NotionPageConnectService {
           'This page is already linked to another user.',
         );
       }
+
+      await this.ensureInitialQuestions({
+        pageId: existing.pageId,
+        notionPageId: existing.notionPageId,
+        token,
+      });
+
       return { page: this.toNotionPageDto(existing) };
     }
 
@@ -70,9 +83,51 @@ export class NotionPageConnectService {
     });
     const savedPage = await this.notionPageRepository.save(notionPage);
 
-    const blocks = await this.notionClient.retrieveAllBlockChildren(
-      token,
+    await this.ensureInitialQuestions({
+      pageId: savedPage.pageId,
       notionPageId,
+      token,
+    });
+
+    return { page: this.toNotionPageDto(savedPage) };
+  }
+
+  private async ensureInitialQuestions(params: {
+    pageId: string;
+    notionPageId: string;
+    token: string;
+  }): Promise<void> {
+    const snapshot = await this.getOrCreateLatestSnapshot(params);
+    const existingQuestionCount = await this.questionRepository.count({
+      where: { snapshotId: snapshot.snapshotId },
+    });
+
+    if (existingQuestionCount > 0) {
+      return;
+    }
+
+    await this.questionGenerationService.generateFromSnapshot(
+      snapshot.snapshotId,
+      NotionPageConnectService.DEFAULT_INITIAL_QUESTIONS_COUNT,
+    );
+  }
+
+  private async getOrCreateLatestSnapshot(params: {
+    pageId: string;
+    notionPageId: string;
+    token: string;
+  }): Promise<PageSnapshot> {
+    const latestSnapshot = await this.pageSnapshotRepository.findOne({
+      where: { pageId: params.pageId },
+      order: { createdAt: 'DESC' },
+    });
+    if (latestSnapshot) {
+      return latestSnapshot;
+    }
+
+    const blocks = await this.notionClient.retrieveAllBlockChildren(
+      params.token,
+      params.notionPageId,
       2,
     );
     const plainText = this.parsingService.extractPlainTextFromBlocks(blocks);
@@ -81,23 +136,16 @@ export class NotionPageConnectService {
       plainText,
     };
     const contentHash = this.parsingService.createContentHash(
-      notionPageId,
+      params.notionPageId,
       snapshotContent,
     );
 
-    const existingSnapshot = await this.pageSnapshotRepository.findOne({
-      where: { contentHash },
+    const snapshot = this.pageSnapshotRepository.create({
+      pageId: params.pageId,
+      content: snapshotContent,
+      contentHash,
     });
-    if (!existingSnapshot) {
-      const snapshot = this.pageSnapshotRepository.create({
-        pageId: savedPage.pageId,
-        content: snapshotContent,
-        contentHash,
-      });
-      await this.pageSnapshotRepository.save(snapshot);
-    }
-
-    return { page: this.toNotionPageDto(savedPage) };
+    return this.pageSnapshotRepository.save(snapshot);
   }
 
   private resolveNotionPageId(dto: NotionAddPageRequestDto): string {

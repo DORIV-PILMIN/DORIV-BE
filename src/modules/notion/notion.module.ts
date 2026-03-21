@@ -15,16 +15,24 @@ import { NotionOauthService } from './notion-oauth.service';
 import { NotionConnectionAccessService } from './services/notion-connection-access.service';
 import { NotionPageSearchService } from './services/notion-page-search.service';
 import { NotionPageConnectService } from './services/notion-page-connect.service';
+import { Question } from '../question/entities/question.entity';
+import { QuestionModule } from '../question/question.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([NotionPage, PageSnapshot, NotionConnection]),
+    TypeOrmModule.forFeature([
+      NotionPage,
+      PageSnapshot,
+      NotionConnection,
+      Question,
+    ]),
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         secret: configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
       }),
     }),
+    QuestionModule,
   ],
   controllers: [NotionController, NotionOauthController],
   providers: [

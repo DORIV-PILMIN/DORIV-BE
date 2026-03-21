@@ -3,10 +3,12 @@ import {
   BadRequestException,
   GatewayTimeoutException,
   Injectable,
+  Logger,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { webcrypto } from 'node:crypto';
 import { OauthLoginRequestDto } from '../dtos/oauth-login-request.dto';
 import { OauthProvider } from '../dtos/oauth-provider.enum';
 
@@ -24,8 +26,42 @@ export type ProviderUserProfile = {
   profileImage: string | null;
 };
 
+type GoogleIdTokenHeader = {
+  alg?: string;
+  kid?: string;
+};
+
+type GoogleIdTokenPayload = {
+  aud?: string | string[];
+  email?: string;
+  exp?: number;
+  iss?: string;
+  name?: string;
+  picture?: string;
+  sub?: string;
+};
+
+type GoogleJwk = JsonWebKey & {
+  alg?: string;
+  kid?: string;
+  kty?: string;
+  use?: string;
+};
+
+type GoogleJwkSet = {
+  keys?: GoogleJwk[];
+};
+
+type CachedGoogleJwkSet = {
+  expiresAt: number;
+  keysByKid: Map<string, GoogleJwk>;
+};
+
 @Injectable()
 export class OauthProviderService {
+  private readonly logger = new Logger(OauthProviderService.name);
+  private googleJwkCache: CachedGoogleJwkSet | null = null;
+
   constructor(private readonly configService: ConfigService) {}
 
   async exchangeCodeForToken(
@@ -44,12 +80,13 @@ export class OauthProviderService {
   async fetchUserProfile(
     provider: OauthProvider,
     accessToken: string,
+    idToken?: string,
   ): Promise<ProviderUserProfile> {
     switch (provider) {
       case OauthProvider.KAKAO:
         return this.fetchKakaoProfile(accessToken);
       case OauthProvider.GOOGLE:
-        return this.fetchGoogleProfile(accessToken);
+        return this.fetchGoogleProfile(accessToken, idToken);
       default:
         throw new BadRequestException('Unsupported OAuth provider.');
     }
@@ -136,7 +173,16 @@ export class OauthProviderService {
 
   private async fetchGoogleProfile(
     accessToken: string,
+    idToken?: string,
   ): Promise<ProviderUserProfile> {
+    if (idToken) {
+      const profileFromIdToken =
+        await this.tryBuildGoogleProfileFromIdToken(idToken);
+      if (profileFromIdToken) {
+        return profileFromIdToken;
+      }
+    }
+
     const data = await this.getJson(
       'https://openidconnect.googleapis.com/v1/userinfo',
       accessToken,
@@ -150,6 +196,230 @@ export class OauthProviderService {
       name,
       profileImage: data.picture ?? null,
     };
+  }
+
+  private async tryBuildGoogleProfileFromIdToken(
+    idToken: string,
+  ): Promise<ProviderUserProfile | null> {
+    try {
+      return await this.buildGoogleProfileFromIdToken(idToken);
+    } catch (error) {
+      this.logger.warn(
+        `Falling back to Google userinfo endpoint: ${this.describeError(error)}`,
+      );
+      return null;
+    }
+  }
+
+  private async buildGoogleProfileFromIdToken(
+    idToken: string,
+  ): Promise<ProviderUserProfile> {
+    const { encodedHeader, encodedPayload, header, payload, signature } =
+      this.parseJwt(idToken);
+
+    if (header.alg !== 'RS256' || !header.kid) {
+      throw new UnauthorizedException('Google ID token header is invalid.');
+    }
+
+    const googleClientId =
+      this.configService.getOrThrow<string>('GOOGLE_CLIENT_ID');
+    if (!this.hasExpectedAudience(payload.aud, googleClientId)) {
+      throw new UnauthorizedException('Google ID token audience is invalid.');
+    }
+
+    if (
+      payload.iss !== 'https://accounts.google.com' &&
+      payload.iss !== 'accounts.google.com'
+    ) {
+      throw new UnauthorizedException('Google ID token issuer is invalid.');
+    }
+
+    if (
+      typeof payload.exp !== 'number' ||
+      payload.exp * 1000 <= Date.now() ||
+      typeof payload.sub !== 'string' ||
+      !payload.sub
+    ) {
+      throw new UnauthorizedException('Google ID token payload is invalid.');
+    }
+
+    const jwk = await this.getGoogleJwk(header.kid);
+    const verified = await this.verifyGoogleJwtSignature(
+      `${encodedHeader}.${encodedPayload}`,
+      signature,
+      jwk,
+    );
+
+    if (!verified) {
+      throw new UnauthorizedException('Google ID token signature is invalid.');
+    }
+
+    const name =
+      payload.name ??
+      (payload.email ? payload.email.split('@')[0] : 'google_user');
+
+    return {
+      providerUserId: payload.sub,
+      email: payload.email ?? null,
+      name,
+      profileImage: payload.picture ?? null,
+    };
+  }
+
+  private parseJwt(token: string): {
+    encodedHeader: string;
+    encodedPayload: string;
+    header: GoogleIdTokenHeader;
+    payload: GoogleIdTokenPayload;
+    signature: Uint8Array;
+  } {
+    const [encodedHeader, encodedPayload, encodedSignature] = token.split('.');
+    if (!encodedHeader || !encodedPayload || !encodedSignature) {
+      throw new UnauthorizedException('Google ID token format is invalid.');
+    }
+
+    try {
+      return {
+        encodedHeader,
+        encodedPayload,
+        header: JSON.parse(
+          Buffer.from(encodedHeader, 'base64url').toString('utf8'),
+        ) as GoogleIdTokenHeader,
+        payload: JSON.parse(
+          Buffer.from(encodedPayload, 'base64url').toString('utf8'),
+        ) as GoogleIdTokenPayload,
+        signature: Buffer.from(encodedSignature, 'base64url'),
+      };
+    } catch {
+      throw new UnauthorizedException('Google ID token format is invalid.');
+    }
+  }
+
+  private hasExpectedAudience(
+    audience: string | string[] | undefined,
+    expectedAudience: string,
+  ): boolean {
+    if (typeof audience === 'string') {
+      return audience === expectedAudience;
+    }
+
+    if (Array.isArray(audience)) {
+      return audience.includes(expectedAudience);
+    }
+
+    return false;
+  }
+
+  private async getGoogleJwk(kid: string): Promise<GoogleJwk> {
+    const cached = await this.getCachedGoogleJwkSet(false);
+    const cachedJwk = cached.keysByKid.get(kid);
+    if (cachedJwk) {
+      return cachedJwk;
+    }
+
+    const refreshed = await this.getCachedGoogleJwkSet(true);
+    const refreshedJwk = refreshed.keysByKid.get(kid);
+    if (!refreshedJwk) {
+      throw new UnauthorizedException('Google ID token signing key is missing.');
+    }
+
+    return refreshedJwk;
+  }
+
+  private async getCachedGoogleJwkSet(
+    forceRefresh: boolean,
+  ): Promise<CachedGoogleJwkSet> {
+    if (
+      !forceRefresh &&
+      this.googleJwkCache &&
+      this.googleJwkCache.expiresAt > Date.now()
+    ) {
+      return this.googleJwkCache;
+    }
+
+    const response = await this.fetchWithTimeout(
+      'https://www.googleapis.com/oauth2/v3/certs',
+      {},
+    );
+    const data = (await this.safeJson(response)) as GoogleJwkSet;
+
+    if (!response.ok || !Array.isArray(data.keys)) {
+      throw new BadGatewayException('Failed to fetch Google signing keys.');
+    }
+
+    const keysByKid = new Map<string, GoogleJwk>();
+    for (const key of data.keys) {
+      if (key.kid) {
+        keysByKid.set(key.kid, key);
+      }
+    }
+
+    if (keysByKid.size === 0) {
+      throw new BadGatewayException('Google signing keys are unavailable.');
+    }
+
+    this.googleJwkCache = {
+      keysByKid,
+      expiresAt: Date.now() + this.getMaxAgeMs(response.headers.get('cache-control')),
+    };
+
+    return this.googleJwkCache;
+  }
+
+  private getMaxAgeMs(cacheControlHeader: string | null): number {
+    const defaultTtlMs = 5 * 60 * 1000;
+    if (!cacheControlHeader) {
+      return defaultTtlMs;
+    }
+
+    const match = cacheControlHeader.match(/max-age=(\d+)/i);
+    if (!match) {
+      return defaultTtlMs;
+    }
+
+    const maxAgeSeconds = Number(match[1]);
+    if (!Number.isFinite(maxAgeSeconds) || maxAgeSeconds <= 0) {
+      return defaultTtlMs;
+    }
+
+    return maxAgeSeconds * 1000;
+  }
+
+  private async verifyGoogleJwtSignature(
+    signingInput: string,
+    signature: Uint8Array,
+    jwk: GoogleJwk,
+  ): Promise<boolean> {
+    if (jwk.kty !== 'RSA' || jwk.alg !== 'RS256') {
+      throw new UnauthorizedException('Google signing key is invalid.');
+    }
+
+    const algorithm = {
+      name: 'RSASSA-PKCS1-v1_5',
+      hash: 'SHA-256',
+    } as const;
+    const key = await webcrypto.subtle.importKey(
+      'jwk',
+      jwk,
+      algorithm,
+      false,
+      ['verify'],
+    );
+
+    return webcrypto.subtle.verify(
+      algorithm.name,
+      key,
+      signature,
+      new TextEncoder().encode(signingInput),
+    );
+  }
+
+  private describeError(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    return 'unknown error';
   }
 
   private async postForm(

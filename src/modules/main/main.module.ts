@@ -13,6 +13,7 @@ import { MainNotionSummaryService } from './services/main-notion-summary.service
 import { MainQuestionSummaryService } from './services/main-question-summary.service';
 import { MainStatsService } from './services/main-stats.service';
 import { MainUserService } from './services/main-user.service';
+import { QuestionModule } from '../question/question.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { MainUserService } from './services/main-user.service';
         secret: configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
       }),
     }),
+    QuestionModule,
   ],
   controllers: [MainController],
   providers: [

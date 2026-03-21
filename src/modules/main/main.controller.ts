@@ -13,6 +13,7 @@ import { MainQuestionDomainDto } from './dtos/main-question-domain.dto';
 import { MainStatsDto } from './dtos/main-stats.dto';
 import { MainUserDto } from './dtos/main-user.dto';
 import { MainService } from './main.service';
+import { QuestionWaitingResponseDto } from '../question/dtos/question-waiting-response.dto';
 
 @ApiTags('main')
 @Controller('main')
@@ -43,6 +44,17 @@ export class MainController {
   @ApiUnauthorizedResponse({ description: '인증이 필요합니다.' })
   getQuestion(@CurrentUserId() userId: string): Promise<MainQuestionDomainDto> {
     return this.mainService.getQuestion(userId);
+  }
+
+  @Get('questions/waiting')
+  @ApiOperation({ summary: '메인 대기 질문 조회' })
+  @ApiOkResponse({ type: QuestionWaitingResponseDto })
+  @ApiUnauthorizedResponse({ description: '인증이 필요합니다.' })
+  async getWaitingQuestion(
+    @CurrentUserId() userId: string,
+  ): Promise<QuestionWaitingResponseDto> {
+    const waitingQuestion = await this.mainService.getWaitingQuestion(userId);
+    return { waitingQuestion };
   }
 
   @Get('stats')
