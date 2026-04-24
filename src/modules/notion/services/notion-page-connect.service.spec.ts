@@ -17,6 +17,7 @@ describe('NotionPageConnectService', () => {
   } as unknown as Repository<NotionPage>;
   const pageSnapshotRepository = {
     findOne: jest.fn(),
+    delete: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
   } as unknown as Repository<PageSnapshot>;
@@ -120,24 +121,55 @@ describe('NotionPageConnectService', () => {
     );
   });
 
-  it('backfills initial questions for an already linked page when none exist', async () => {
+  it('replaces the previous snapshot when an already linked page is loaded again', async () => {
     (notionConnectionAccessService.getUserAccessTokenOrThrow as jest.Mock).mockResolvedValue(
       'notion-token',
     );
-    (notionPageRepository.findOne as jest.Mock).mockResolvedValue({
+    (notionClient.retrievePage as jest.Mock).mockResolvedValue({
+      url: 'https://www.notion.so/example-new',
+    });
+    (parsingService.extractTitleFromPage as jest.Mock).mockReturnValue(
+      '최신 페이지',
+    );
+
+    const existingPage = {
       pageId: 'page-1',
       userId: 'user-1',
       notionPageId: 'notion-page-1',
       title: '기존 페이지',
-      url: 'https://www.notion.so/example',
+      url: 'https://www.notion.so/example-old',
       isConnected: true,
       connectedAt: new Date('2026-03-22T00:00:00.000Z'),
+    };
+
+    (notionPageRepository.findOne as jest.Mock).mockResolvedValue(existingPage);
+    (notionPageRepository.save as jest.Mock).mockImplementation(async (value) => value);
+    (pageSnapshotRepository.delete as jest.Mock).mockResolvedValue({
+      affected: 1,
     });
-    (pageSnapshotRepository.findOne as jest.Mock).mockResolvedValue({
-      snapshotId: 'snapshot-1',
+    (notionClient.retrieveAllBlockChildren as jest.Mock).mockResolvedValue([
+      { id: 'block-2' },
+    ]);
+    (parsingService.extractPlainTextFromBlocks as jest.Mock).mockReturnValue(
+      '최신 노션 본문 텍스트',
+    );
+    (parsingService.createContentHash as jest.Mock).mockReturnValue('hash-2');
+    (pageSnapshotRepository.create as jest.Mock).mockReturnValue({
       pageId: 'page-1',
-      content: { plainText: '노션 본문 텍스트' },
-      contentHash: 'hash-1',
+      content: {
+        blocks: [{ id: 'block-2' }],
+        plainText: '최신 노션 본문 텍스트',
+      },
+      contentHash: 'hash-2',
+    });
+    (pageSnapshotRepository.save as jest.Mock).mockResolvedValue({
+      snapshotId: 'snapshot-2',
+      pageId: 'page-1',
+      content: {
+        blocks: [{ id: 'block-2' }],
+        plainText: '최신 노션 본문 텍스트',
+      },
+      contentHash: 'hash-2',
     });
     (questionRepository.count as jest.Mock).mockResolvedValue(0);
     (questionGenerationService.generateFromSnapshot as jest.Mock).mockResolvedValue(
@@ -156,8 +188,13 @@ describe('NotionPageConnectService', () => {
 
     await service.addPage('user-1', { notionPageId: 'notion-page-1' });
 
+    expect(pageSnapshotRepository.delete).toHaveBeenCalledWith({
+      pageId: 'page-1',
+    });
+    expect(existingPage.title).toBe('최신 페이지');
+    expect(existingPage.url).toBe('https://www.notion.so/example-new');
     expect(questionGenerationService.generateFromSnapshot).toHaveBeenCalledWith(
-      'snapshot-1',
+      'snapshot-2',
       3,
     );
   });

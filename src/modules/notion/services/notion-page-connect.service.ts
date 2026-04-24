@@ -46,6 +46,10 @@ export class NotionPageConnectService {
     const existing = await this.notionPageRepository.findOne({
       where: { notionPageId },
     });
+    const page = await this.notionClient.retrievePage(token, notionPageId);
+    const title = this.parsingService.extractTitleFromPage(page);
+    const url = typeof page.url === 'string' ? page.url : '';
+
     if (existing) {
       if (existing.userId !== userId) {
         throw new ConflictException(
@@ -53,10 +57,16 @@ export class NotionPageConnectService {
         );
       }
 
+      existing.title = title;
+      existing.url = url;
+      existing.isConnected = true;
+      await this.notionPageRepository.save(existing);
+
       await this.ensureInitialQuestions({
         pageId: existing.pageId,
         notionPageId: existing.notionPageId,
         token,
+        forceRefresh: true,
       });
 
       return { page: this.toNotionPageDto(existing) };
@@ -68,10 +78,6 @@ export class NotionPageConnectService {
     if (currentCount >= NotionPageConnectService.MAX_PAGES_PER_USER) {
       throw new BadRequestException('You can connect up to 5 Notion pages.');
     }
-
-    const page = await this.notionClient.retrievePage(token, notionPageId);
-    const title = this.parsingService.extractTitleFromPage(page);
-    const url = typeof page.url === 'string' ? page.url : '';
 
     const notionPage = this.notionPageRepository.create({
       userId,
@@ -87,6 +93,7 @@ export class NotionPageConnectService {
       pageId: savedPage.pageId,
       notionPageId,
       token,
+      forceRefresh: false,
     });
 
     return { page: this.toNotionPageDto(savedPage) };
@@ -96,6 +103,7 @@ export class NotionPageConnectService {
     pageId: string;
     notionPageId: string;
     token: string;
+    forceRefresh: boolean;
   }): Promise<void> {
     const snapshot = await this.getOrCreateLatestSnapshot(params);
     const existingQuestionCount = await this.questionRepository.count({
@@ -116,13 +124,20 @@ export class NotionPageConnectService {
     pageId: string;
     notionPageId: string;
     token: string;
+    forceRefresh: boolean;
   }): Promise<PageSnapshot> {
-    const latestSnapshot = await this.pageSnapshotRepository.findOne({
-      where: { pageId: params.pageId },
-      order: { createdAt: 'DESC' },
-    });
-    if (latestSnapshot) {
-      return latestSnapshot;
+    if (!params.forceRefresh) {
+      const latestSnapshot = await this.pageSnapshotRepository.findOne({
+        where: { pageId: params.pageId },
+        order: { createdAt: 'DESC' },
+      });
+      if (latestSnapshot) {
+        return latestSnapshot;
+      }
+    } else {
+      await this.pageSnapshotRepository.delete({
+        pageId: params.pageId,
+      });
     }
 
     const blocks = await this.notionClient.retrieveAllBlockChildren(
